@@ -1,0 +1,56 @@
+{
+  "name": "shadowing-studio",
+  "productName": "Shadowing Studio",
+  "version": "1.0.0",
+  "description": "Shadowing Studio — PDF + Audio mashq dasturi",
+  "main": "main.js",
+  "author": "Shadowing Studio",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.shadowingstudio.app",
+    "productName": "Shadowing Studio",
+    "copyright": "Shadowing Studio",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "serve.js",
+      "package.json",
+      "app/**/*",
+      "build/icon.png",
+      "!**/*.map"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Shadowing Studio",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "Shadowing-Studio-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Shadowing-Studio-Portable-${version}.${ext}"
+    }
+  }
+}

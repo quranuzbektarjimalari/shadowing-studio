@@ -1,0 +1,16 @@
+Shadowing Studio — uchinchi tomon komponentlari
+
+1) PDF.js (app/vendor/pdfjs/)
+   Mozilla va hissadorlar. Litsenziya: Apache License 2.0
+   To'liq matn: app/vendor/pdfjs/LICENSE
+   https://github.com/mozilla/pdf.js
+
+2) Font Awesome Free — ikonkalar (app/css/icons.css)
+   Ikonkalar: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+   https://fontawesome.com/license/free
+   (SVG ma'lumotlari react-icons paketidagi "fa6" to'plamidan olingan)
+
+3) Electron (dasturni Windows oynasida ishga tushiradi) — MIT litsenziyasi
+   https://www.electronjs.org/
+   Chromium va boshqa komponentlar litsenziyalari yig'ilgan dastur ichida
+   LICENSES.chromium.html faylida keltiriladi.
