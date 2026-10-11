@@ -1,0 +1,33 @@
+name: Build Windows installer
+
+# Qo'lda ishga tushirish (Actions -> Build Windows installer -> Run workflow)
+# yoki "v1.0.0" kabi teg yuborilganda avtomatik ishlaydi.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build .exe
+        run: npm run dist
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShadowingStudio-Windows
+          path: |
+            dist/*.exe
+          if-no-files-found: error
