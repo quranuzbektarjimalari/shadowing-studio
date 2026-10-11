@@ -1,6 +1,6 @@
 name: Build Windows installer
 
-# Qo'lda ishga tushirish (Actions -> Build Windows installer -> Run workflow)
+# Qo'lda ishga tushirish: Actions -> Build Windows installer -> Run workflow
 # yoki "v1.0.0" kabi teg yuborilganda avtomatik ishlaydi.
 on:
   workflow_dispatch:
@@ -12,17 +12,33 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
+          node-version: 22
+
+      - name: Check project files
+        shell: bash
+        run: |
+          missing=0
+          for f in package.json main.js serve.js build/icon.ico build/icon.png app/index.html app/js/app.js app/css/base.css app/css/icons.css app/vendor/pdfjs/pdf.min.mjs app/vendor/pdfjs/pdf.worker.min.mjs; do
+            if [ ! -f "" ]; then echo "YETISHMAYAPTI: "; missing=1; fi
+          done
+          count=205
+          echo "app/ ichidagi fayllar soni:  (kutilgan: 205)"
+          if [ "" = "1" ] || [ "" -lt 205 ]; then
+            echo "XATO: loyiha fayllari to'liq yuklanmagan. GitHub veb-sahifasi bir martada 100 tagacha faylni qabul qiladi - zip'dagi barcha papkalarni to'liq yuklang (yoki git / GitHub Desktop ishlating)."
+            exit 1
+          fi
 
       - name: Install dependencies
         run: npm install
 
       - name: Build .exe
         run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
