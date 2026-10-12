@@ -2,657 +2,13 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self' blob:; connect-src 'self' blob: data:; font-src 'self' data:; object-src 'none'; base-uri 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data:; font-src 'self' data:; object-src 'none'; base-uri 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shadowing Studio</title>
 
-  <title>Shadowing Studio — PDF + Audio</title>
-
-  <!-- Mahalliy bazaviy uslublar (Tailwind o'rniga) -->
   <link rel="stylesheet" href="./css/base.css" />
-
-  <!-- Ikonkalar (Font Awesome Free, CSS mask) -->
   <link rel="stylesheet" href="./css/icons.css" />
-
-  <!-- PDF.js (mahalliy nusxa) -->
-  <script type="module" src="./js/pdfjs-loader.mjs"></script>
-
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      background: #0f172a;
-      color: white;
-      font-family: Arial, sans-serif;
-    }
-
-    /* =========================================================
-       PDF VIEWER
-    ========================================================= */
-
-    #pdfContainer {
-      position: relative;
-      flex: 1;
-      min-height: 0;
-      overflow: auto;
-      background: #1f2937;
-      cursor: grab;
-      scrollbar-width: thin;
-      scrollbar-color: #475569 #1f2937;
-      user-select: none;
-    }
-
-    #pdfContainer.dragging {
-      cursor: grabbing;
-    }
-
-    #pdfPageWrapper {
-      /* Keng (zoom qilingan) sahifalar ham chapga kesilmasdan scroll bo'lishi uchun */
-      width: max-content;
-      min-width: 100%;
-      min-height: 100%;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 24px 24px 100px;
-    }
-
-    /* Barcha sahifalar ketma-ket bitta uzun vertikal ro'yxatda */
-    #pdfPagesList {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 16px;
-    }
-
-    #pdfPagesList.hidden {
-      display: none;
-    }
-
-    .pdf-page {
-      position: relative;
-      flex: none;
-      background: #ffffff;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
-      overflow: hidden;
-    }
-
-    .pdf-page-label {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      font-weight: 600;
-      color: #cbd5e1;
-      pointer-events: none;
-    }
-
-    .pdf-page canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    /* =========================================================
-       GENERAL PDF BUTTON
-    ========================================================= */
-
-    .pdf-btn {
-      height: 32px;
-      min-width: 32px;
-      padding: 0 9px;
-
-      border-radius: 7px;
-      border: 1px solid #475569;
-
-      background: #334155;
-      color: white;
-
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-
-      cursor: pointer;
-      transition: 0.15s;
-
-      font-size: 13px;
-    }
-
-    .pdf-btn:hover:not(:disabled) {
-      background: #475569;
-    }
-
-    .pdf-btn:active:not(:disabled) {
-      transform: scale(0.97);
-    }
-
-    .pdf-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-
-    /* =========================================================
-       AUDIO PAGE CONTROL
-    ========================================================= */
-
-    .pdf-page-control {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-shrink: 0;
-    }
-
-    .audio-page-input {
-      width: 42px;
-      height: 32px;
-
-      border: 1px solid #475569;
-      border-radius: 7px;
-
-      background: #1e293b;
-      color: white;
-
-      text-align: center;
-      outline: none;
-
-      font-size: 12px;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .audio-page-input:focus {
-      border-color: #38bdf8;
-    }
-
-    .audio-page-input::-webkit-inner-spin-button,
-    .audio-page-input::-webkit-outer-spin-button {
-      -webkit-appearance: none;
-      margin: 0;
-    }
-
-    .audio-page-input[type="number"] {
-      -moz-appearance: textfield;
-    }
-
-    .audio-page-count {
-      min-width: 24px;
-      color: #cbd5e1;
-      font-size: 12px;
-      text-align: center;
-      font-variant-numeric: tabular-nums;
-    }
-
-    .page-separator {
-      color: #64748b;
-      font-size: 12px;
-    }
-
-    .player-divider {
-      width: 1px;
-      height: 25px;
-      background: #475569;
-      margin: 0 3px;
-      flex-shrink: 0;
-    }
-
-    /* =========================================================
-       AUDIO PLAYER
-    ========================================================= */
-
-    #audioPlayerBar {
-      position: fixed;
-
-      left: 50%;
-      bottom: 8px;
-
-      transform: translateX(-50%);
-
-      z-index: 1000;
-
-      min-height: 56px;
-      max-width: calc(100vw - 16px);
-
-      padding: 7px 10px;
-
-      display: flex;
-      align-items: center;
-      gap: 7px;
-
-      background: rgba(30, 41, 59, 0.96);
-
-      border: 1px solid rgba(100, 116, 139, 0.75);
-      border-radius: 16px;
-
-      box-shadow:
-        0 12px 35px rgba(0, 0, 0, 0.45),
-        0 3px 10px rgba(0, 0, 0, 0.3);
-
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-
-      white-space: nowrap;
-    }
-
-    .audio-btn {
-      flex-shrink: 0;
-
-      width: 36px;
-      height: 36px;
-
-      border: 0;
-      border-radius: 8px;
-
-      background: #334155;
-      color: white;
-
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-
-      cursor: pointer;
-
-      transition:
-        background 0.15s,
-        transform 0.1s,
-        opacity 0.15s;
-    }
-
-    .audio-btn:hover:not(:disabled) {
-      background: #475569;
-    }
-
-    .audio-btn:active:not(:disabled) {
-      transform: scale(0.95);
-    }
-
-    .audio-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-
-    .play-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      background: #0ea5e9;
-
-      box-shadow:
-        0 4px 12px rgba(14, 165, 233, 0.3);
-    }
-
-    .play-btn:hover:not(:disabled) {
-      background: #38bdf8;
-    }
-
-    .audio-btn.active {
-      background: #10b981;
-      color: white;
-    }
-
-    .audio-btn.danger:hover:not(:disabled) {
-      background: #dc2626;
-    }
-
-    #currentTime,
-    #duration {
-      flex-shrink: 0;
-      width: 38px;
-
-      font-size: 11px;
-      color: #cbd5e1;
-
-      font-variant-numeric: tabular-nums;
-    }
-
-    #currentTime {
-      text-align: right;
-    }
-
-    #duration {
-      text-align: left;
-    }
-
-    #progress {
-      width: 360px;
-      min-width: 100px;
-    }
-
-    #volume {
-      width: 55px;
-    }
-
-    .audio-range {
-      height: 4px;
-      cursor: pointer;
-      accent-color: #38bdf8;
-    }
-
-    #speedBtn {
-      min-width: 43px;
-      padding: 0 7px;
-
-      font-size: 12px;
-      font-weight: bold;
-    }
-
-    #audioStatus {
-      min-width: 35px;
-      max-width: 150px;
-
-      font-size: 11px;
-      font-weight: bold;
-
-      color: #38bdf8;
-
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    /* =========================================================
-       RESPONSIVE PLAYER
-    ========================================================= */
-
-    @media (max-width: 1100px) {
-      #progress {
-        width: 260px;
-      }
-
-      #audioStatus {
-        max-width: 100px;
-      }
-    }
-
-    @media (max-width: 850px) {
-      #audioPlayerBar {
-        gap: 5px;
-        padding: 6px 8px;
-      }
-
-      #progress {
-        width: 180px;
-      }
-
-      #volume {
-        width: 42px;
-      }
-
-      #audioStatus {
-        display: none;
-      }
-    }
-
-    @media (max-width: 650px) {
-      #audioPlayerBar {
-        width: calc(100vw - 10px);
-        max-width: calc(100vw - 10px);
-
-        bottom: 5px;
-
-        overflow-x: auto;
-        overflow-y: hidden;
-
-        border-radius: 13px;
-
-        scrollbar-width: none;
-      }
-
-      #audioPlayerBar::-webkit-scrollbar {
-        display: none;
-      }
-
-      #progress {
-        width: 130px;
-        min-width: 130px;
-      }
-
-      #volume {
-        width: 38px;
-        min-width: 38px;
-      }
-
-      .audio-btn {
-        width: 33px;
-        height: 33px;
-      }
-
-      .play-btn {
-        width: 37px;
-        height: 37px;
-      }
-
-      #currentTime,
-      #duration {
-        width: 34px;
-        font-size: 10px;
-      }
-
-      .audio-page-input {
-        width: 38px;
-      }
-
-      #pdfPageWrapper {
-        padding: 16px 16px 100px;
-      }
-    }
-  
-    /* =========================================================
-       PLAYLIST
-    ========================================================= */
-
-    #playlistBtn {
-      position: relative;
-    }
-
-    #playlistBadge {
-      position: absolute;
-      top: -5px;
-      right: -5px;
-      min-width: 16px;
-      height: 16px;
-      padding: 0 4px;
-      border-radius: 8px;
-      background: #0ea5e9;
-      color: #ffffff;
-      font-size: 10px;
-      font-weight: 700;
-      line-height: 16px;
-      text-align: center;
-      display: none;
-      pointer-events: none;
-    }
-
-    #playlistPanel {
-      position: fixed;
-      left: 50%;
-      bottom: 76px;
-      transform: translateX(-50%);
-      z-index: 999;
-      width: min(460px, calc(100vw - 16px));
-      max-height: min(50vh, 420px);
-      display: flex;
-      flex-direction: column;
-      background: rgba(30, 41, 59, 0.98);
-      border: 1px solid rgba(100, 116, 139, 0.75);
-      border-radius: 14px;
-      box-shadow:
-        0 12px 35px rgba(0, 0, 0, 0.45),
-        0 3px 10px rgba(0, 0, 0, 0.3);
-      backdrop-filter: blur(12px);
-      -webkit-backdrop-filter: blur(12px);
-      overflow: hidden;
-    }
-
-    #playlistPanel.hidden {
-      display: none;
-    }
-
-    .playlist-head {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 10px;
-      border-bottom: 1px solid #334155;
-    }
-
-    #playlistTitle {
-      flex: 1;
-      min-width: 0;
-      font-size: 13px;
-      font-weight: 600;
-      color: #e2e8f0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .pl-btn {
-      flex: none;
-      border: 0;
-      border-radius: 8px;
-      background: #334155;
-      color: #ffffff;
-      font-size: 12px;
-      padding: 6px 9px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      white-space: nowrap;
-      transition: background 0.15s;
-    }
-
-    .pl-btn:hover:not(:disabled) {
-      background: #475569;
-    }
-
-    .pl-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-    }
-
-    .pl-btn.on {
-      background: #0ea5e9;
-    }
-
-    #playlistList {
-      list-style: none;
-      margin: 0;
-      padding: 4px;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: #475569 transparent;
-    }
-
-    .playlist-item {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px;
-      border-radius: 8px;
-      cursor: pointer;
-      color: #cbd5e1;
-      font-size: 13px;
-    }
-
-    .playlist-item:hover {
-      background: #334155;
-    }
-
-    .playlist-item.current {
-      background: rgba(14, 165, 233, 0.18);
-      color: #ffffff;
-    }
-
-    .playlist-num {
-      flex: none;
-      width: 22px;
-      text-align: center;
-      font-size: 12px;
-      color: #94a3b8;
-    }
-
-    .playlist-item.current .playlist-num {
-      color: #38bdf8;
-    }
-
-    .playlist-name {
-      flex: 1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .playlist-remove {
-      flex: none;
-      width: 24px;
-      height: 24px;
-      border: 0;
-      border-radius: 6px;
-      background: transparent;
-      color: #94a3b8;
-      cursor: pointer;
-    }
-
-    .playlist-remove:hover {
-      background: #475569;
-      color: #ffffff;
-    }
-
-    .playlist-empty {
-      padding: 18px 10px;
-      text-align: center;
-      font-size: 13px;
-      color: #94a3b8;
-    }
-  
-    /* =========================================================
-       DROP OVERLAY
-    ========================================================= */
-
-    #dropOverlay {
-      display: none;
-      position: fixed;
-      inset: 0;
-      z-index: 2000;
-      align-items: center;
-      justify-content: center;
-      background: rgba(15, 23, 42, 0.82);
-      pointer-events: none;
-    }
-
-    #dropOverlay.show {
-      display: flex;
-    }
-
-    #dropOverlay .drop-box {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      padding: 36px 56px;
-      border: 2px dashed #38bdf8;
-      border-radius: 20px;
-      color: #e2e8f0;
-      font-size: 34px;
-    }
-
-    #dropOverlay .drop-box p {
-      font-size: 18px;
-      font-weight: 600;
-    }
-  </style>
+  <link rel="stylesheet" href="./css/app.css" />
 </head>
 
 <body>
@@ -681,7 +37,7 @@
         </h1>
 
         <p class="text-[10px] md:text-xs text-slate-400">
-          PDF + Audio Practice
+          Video Shadowing Practice
         </p>
       </div>
 
@@ -689,47 +45,46 @@
 
     <div class="flex items-center gap-2">
 
-      <!-- PDF INPUT -->
+      <!-- VIDEO INPUT (video + ixtiyoriy subtitr birga tanlanishi mumkin) -->
       <input
-        id="pdfInput"
-        type="file"
-        accept="application/pdf,.pdf"
-        class="hidden"
-      />
-
-      <button
-        id="openPdfBtn"
-        class="pdf-btn"
-        title="PDF ochish"
-        type="button"
-      >
-        <i class="fa-solid fa-file-pdf"></i>
-        <span class="hidden sm:inline">PDF</span>
-      </button>
-
-      <!-- AUDIO INPUT -->
-      <input
-        id="audioInput"
+        id="videoInput"
         type="file"
         multiple
-        accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac,.webm"
+        accept="video/*,.mp4,.m4v,.mov,.webm,.mkv,.avi,.ogv,.mpg,.mpeg,.wmv,.3gp,.srt,.vtt"
         class="hidden"
       />
 
       <button
-        id="openAudioBtn"
-        class="pdf-btn"
-        title="Audio ochish (bir nechta tanlash mumkin)"
+        id="openVideoBtn"
+        class="hdr-btn"
+        title="Video ochish (Ctrl+O). Bir nechta video, hamda .srt / .vtt subtitrni birga tanlash mumkin"
         type="button"
       >
-        <i class="fa-solid fa-music"></i>
-        <span class="hidden sm:inline">Audio</span>
+        <i class="fa-solid fa-film"></i>
+        <span class="hidden sm:inline">Video</span>
+      </button>
+
+      <!-- SUBTITLE INPUT -->
+      <input
+        id="subInput"
+        type="file"
+        accept=".srt,.vtt,text/vtt"
+        class="hidden"
+      />
+
+      <button
+        id="openSubBtn"
+        class="hdr-btn"
+        title="Joriy video uchun subtitr (.srt / .vtt) yuklash"
+        type="button"
+      >
+        <i class="fa-solid fa-closed-captioning"></i>
+        <span class="hidden sm:inline">Subtitr</span>
       </button>
 
     </div>
 
   </header>
-
 
   <!-- =======================================================
        MAIN
@@ -737,21 +92,87 @@
 
   <main class="flex flex-col" style="height: calc(100vh - 58px); height: calc(100dvh - 58px);">
 
-    <section class="flex-1 min-h-0 bg-gray-800 flex flex-col">
+    <section id="stage">
 
-      <!-- ===================================================
-           PDF VIEWER
-      ==================================================== -->
+      <!-- SHADOWING ASBOBLARI -->
 
-      <div id="pdfContainer">
+      <div id="toolStrip" role="toolbar" aria-label="Shadowing asboblari">
 
-        <!-- Placeholder -->
-
-        <div
-          id="pdfPlaceholder"
-          class="absolute inset-0 flex items-center justify-center"
+        <button
+          id="sentenceBtn"
+          class="tool-btn"
+          title="Hozirgi gapni takrorlash (R)"
+          type="button"
         >
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>Gapni takrorlash</span>
+        </button>
 
+        <button
+          id="autoPauseBtn"
+          class="tool-btn"
+          title="Har gapdan keyin to'xtash — takrorlashingiz uchun (S)"
+          type="button"
+        >
+          <i class="fa-solid fa-circle-pause"></i>
+          <span>Gapdan keyin to'xta</span>
+        </button>
+
+        <button
+          id="subBtn"
+          class="tool-btn active"
+          title="Subtitrni ko'rsatish / yashirish (T). Kattalik: + / -"
+          type="button"
+        >
+          <i class="fa-solid fa-closed-captioning"></i>
+          <span>Subtitr</span>
+        </button>
+
+        <span class="tool-sep"></span>
+
+        <button
+          id="recBtn"
+          class="tool-btn"
+          title="Mikrofonda yozish va video bilan birga gapirish (V)"
+          type="button"
+        >
+          <i class="fa-solid fa-microphone"></i>
+          <span>Yozish</span>
+        </button>
+
+        <button
+          id="compareBtn"
+          class="tool-btn"
+          title="Oxirgi yozuvni asl bilan solishtirish: avval asl, keyin siz (K)"
+          type="button"
+        >
+          <i class="fa-solid fa-right-left"></i>
+          <span>Solishtirish</span>
+        </button>
+
+      </div>
+
+      <!-- VIDEO -->
+
+      <div id="videoFrame">
+
+        <video
+          id="video"
+          preload="metadata"
+          playsinline
+        ></video>
+
+        <div id="subtitleOverlay" aria-live="off">
+          <span id="subtitleText"></span>
+        </div>
+
+        <div id="recIndicator" aria-hidden="true">
+          <span class="rec-dot"></span>
+          <span id="recTime">REC 0:00</span>
+        </div>
+
+        <!-- Video yo'q paytdagi ko'rinish -->
+        <div id="stagePlaceholder">
           <div class="text-center px-5">
 
             <div
@@ -760,46 +181,23 @@
                      flex items-center justify-center
                      mx-auto mb-4"
             >
-              <i
-                class="fa-solid fa-file-pdf
-                       text-4xl text-slate-400"
-              ></i>
+              <i class="fa-solid fa-film text-4xl text-slate-400"></i>
             </div>
 
-            <h2
-              class="text-lg font-semibold text-slate-300"
-            >
-              PDF faylni oching
+            <h2 class="text-lg font-semibold text-slate-300">
+              Video faylni oching
             </h2>
 
-            <p
-              class="text-sm text-slate-500 mt-2"
-            >
-              Yuqoridagi PDF tugmasi orqali
-              hujjat tanlang
+            <p class="text-sm text-slate-500 mt-2">
+              Yuqoridagi Video tugmasi orqali tanlang yoki faylni shu yerga sudrab tashlang.
+              Subtitr (.srt / .vtt) ni videoning o'zi bilan birga tanlasangiz, avtomatik ulanadi
             </p>
 
-            <p
-              class="text-xs text-slate-600 mt-3"
-            >
-              Ctrl + O — PDF ochish
+            <p class="text-xs text-slate-600 mt-3">
+              Ctrl + O — video ochish
             </p>
 
           </div>
-
-        </div>
-
-
-        <!-- PDF canvas wrapper -->
-
-        <div id="pdfPageWrapper">
-
-          <!-- Barcha PDF sahifalari shu yerga ketma-ket chiziladi -->
-          <div
-            id="pdfPagesList"
-            class="hidden"
-          ></div>
-
         </div>
 
       </div>
@@ -808,159 +206,135 @@
 
   </main>
 
-
   <!-- =======================================================
-       FLOATING AUDIO PLAYER
+       PLAYER BAR
   ======================================================== -->
 
-  <div id="audioPlayerBar">
+  <div id="playerBar">
 
-    <!-- PDF PAGE NAVIGATION -->
-     <!-- PDF VERTICAL SCROLL -->
+    <!-- GAP (SUBTITR QATORI) NAVIGATSIYASI -->
 
-<div
-  class="pdf-page-control"
-  title="PDF vertikal scroll"
->
-  <button
-    id="prevPageBtn"
-    class="audio-btn"
-    title="Oldingi sahifaga"
-    type="button"
-  >
-    <i class="fa-solid fa-arrow-left"></i>
-  </button>
+    <div
+      class="cue-control"
+      title="Subtitr gaplari bo'yicha navigatsiya"
+    >
 
-  <input
-    id="pageInput"
-    class="audio-page-input"
-    type="number"
-    min="1"
-    value="1"
-    title="Sahifa raqami"
-    aria-label="PDF sahifa raqami"
-    inputmode="numeric"
-    autocomplete="off"
-  />
+      <button
+        id="cuePrevBtn"
+        class="bar-btn"
+        title="Oldingi gap (←). Subtitr bo'lmasa: 5 soniya orqaga"
+        type="button"
+      >
+        <i class="fa-solid fa-arrow-left"></i>
+      </button>
 
-  <span class="page-separator">/</span>
+      <input
+        id="cueInput"
+        class="cue-input"
+        type="number"
+        min="1"
+        value="0"
+        title="Gap raqami"
+        aria-label="Gap raqami"
+        inputmode="numeric"
+        autocomplete="off"
+        disabled
+      />
 
-  <span
-    id="pageCount"
-    class="audio-page-count"
-  >
-    0
-  </span>
+      <span class="cue-separator">/</span>
 
-  <button
-    id="nextPageBtn"
-    class="audio-btn"
-    title="Keyingi sahifaga"
-    type="button"
-  >
-    <i class="fa-solid fa-arrow-right"></i>
-  </button>
-</div>
+      <span id="cueCount" class="cue-count">0</span>
 
+      <button
+        id="cueNextBtn"
+        class="bar-btn"
+        title="Keyingi gap (→). Subtitr bo'lmasa: 5 soniya oldinga"
+        type="button"
+      >
+        <i class="fa-solid fa-arrow-right"></i>
+      </button>
+
+    </div>
 
     <div class="player-divider"></div>
 
-
-    <!-- AUDIO CONTROLS -->
+    <!-- PLAYER CONTROLS -->
 
     <button
-      id="prevAudioBtn"
-      class="audio-btn"
-      title="Oldingi audio / boshiga (P)"
+      id="prevVideoBtn"
+      class="bar-btn"
+      title="Oldingi video / boshiga (P)"
       type="button"
     >
       <i class="fa-solid fa-backward-step"></i>
     </button>
 
-
     <button
       id="playBtn"
-      class="audio-btn play-btn"
+      class="bar-btn play-btn"
       title="Play / Pause"
       type="button"
     >
       <i class="fa-solid fa-play"></i>
     </button>
 
-
     <button
-      id="nextAudioBtn"
-      class="audio-btn"
-      title="Keyingi audio (N)"
+      id="nextVideoBtn"
+      class="bar-btn"
+      title="Keyingi video (N)"
       type="button"
     >
       <i class="fa-solid fa-forward-step"></i>
     </button>
 
-    <!-- PLAYLIST -->
+    <!-- PANEL (VIDEOLAR / GAPLAR / YOZUVLAR) -->
 
     <button
-      id="playlistBtn"
-      class="audio-btn"
-      title="Playlist (L)"
+      id="panelBtn"
+      class="bar-btn"
+      title="Videolar ro'yxati (L) · Gaplar (C) · Yozuvlar (Y)"
       type="button"
     >
       <i class="fa-solid fa-list-ul"></i>
-      <span id="playlistBadge"></span>
+      <span id="panelBadge"></span>
     </button>
 
-
-    <span id="currentTime">
-      0:00
-    </span>
-
+    <span id="currentTime">0:00</span>
 
     <input
       id="progress"
-      class="audio-range"
+      class="range"
       type="range"
       min="0"
       max="0"
       step="0.1"
       value="0"
-      aria-label="Audio progress"
+      aria-label="Video progress"
     />
 
-
-    <span id="duration">
-      0:00
-    </span>
-
-
-    <!-- SPEED -->
+    <span id="duration">0:00</span>
 
     <button
       id="speedBtn"
-      class="audio-btn"
+      class="bar-btn"
       title="Playback speed"
       type="button"
     >
       1x
     </button>
 
-
-    <!-- MUTE -->
-
     <button
       id="muteBtn"
-      class="audio-btn"
+      class="bar-btn"
       title="Mute"
       type="button"
     >
       <i class="fa-solid fa-volume-high"></i>
     </button>
 
-
-    <!-- VOLUME -->
-
     <input
       id="volume"
-      class="audio-range"
+      class="range"
       type="range"
       min="0"
       max="1"
@@ -970,143 +344,143 @@
       aria-label="Volume"
     />
 
-
-    <!-- NORMAL LOOP -->
-
     <button
       id="loopBtn"
-      class="audio-btn"
-      title="Audio Loop"
+      class="bar-btn"
+      title="Video Loop"
       type="button"
     >
       <i class="fa-solid fa-repeat"></i>
     </button>
 
-
-    <!-- A -->
-
     <button
       id="btnA"
-      class="audio-btn"
+      class="bar-btn"
       title="A nuqta"
       type="button"
     >
       A
     </button>
 
-
-    <!-- B -->
-
     <button
       id="btnB"
-      class="audio-btn"
+      class="bar-btn"
       title="B nuqta"
       type="button"
     >
       B
     </button>
 
-
-    <!-- CLEAR A-B -->
-
     <button
       id="clearLoopBtn"
-      class="audio-btn danger"
+      class="bar-btn danger"
       title="A-B loopni tozalash"
       type="button"
     >
       <i class="fa-solid fa-xmark"></i>
     </button>
 
-
-    <!-- STATUS -->
-
-    <span
-      id="audioStatus"
-      aria-live="polite"
-    ></span>
+    <span id="status" aria-live="polite"></span>
 
   </div>
 
-
   <!-- =======================================================
-       AUDIO ELEMENT
-  ======================================================== -->
-
-  <!-- =======================================================
-       PLAYLIST PANEL
+       SIDE PANEL
   ======================================================== -->
 
   <div
-    id="playlistPanel"
+    id="sidePanel"
     class="hidden"
     role="dialog"
-    aria-label="Playlist"
+    aria-label="Videolar, gaplar va yozuvlar"
   >
 
-    <div class="playlist-head">
+    <div class="panel-head">
 
-      <span id="playlistTitle">Playlist</span>
+      <button id="tabVideos" class="tab-btn" type="button" data-tab="videos">Videolar</button>
+      <button id="tabCues" class="tab-btn" type="button" data-tab="cues">Gaplar</button>
+      <button id="tabTakes" class="tab-btn" type="button" data-tab="takes">Yozuvlar</button>
 
-      <button
-        id="playlistAddBtn"
-        class="pl-btn"
-        type="button"
-        title="Ro'yxatga audio qo'shish"
-      >
-        <i class="fa-solid fa-plus"></i>
-        <span>Qo'shish</span>
-      </button>
+      <span class="panel-spacer"></span>
 
-      <button
-        id="playlistAutoBtn"
-        class="pl-btn on"
-        type="button"
-        title="Audio tugagach keyingisiga avtomatik o'tish"
-      >
-        <i class="fa-solid fa-forward"></i>
-        <span>Avto</span>
-      </button>
-
-      <button
-        id="playlistClearBtn"
-        class="pl-btn"
-        type="button"
-        title="Ro'yxatni tozalash"
-      >
-        <i class="fa-solid fa-trash"></i>
-      </button>
-
-      <button
-        id="playlistCloseBtn"
-        class="pl-btn"
-        type="button"
-        title="Yopish"
-      >
+      <button id="panelCloseBtn" class="pl-btn" type="button" title="Yopish (Esc)">
         <i class="fa-solid fa-xmark"></i>
       </button>
 
     </div>
 
-    <ol id="playlistList"></ol>
+    <!-- VIDEOLAR -->
+    <section id="paneVideos" class="panel-pane">
+
+      <div class="pane-tools">
+        <span id="videosTitle" class="pane-title">Videolar</span>
+
+        <button id="addVideoBtn" class="pl-btn" type="button" title="Ro'yxatga video qo'shish">
+          <i class="fa-solid fa-plus"></i>
+          <span>Qo'shish</span>
+        </button>
+
+        <button id="autoNextBtn" class="pl-btn on" type="button" title="Video tugagach keyingisiga avtomatik o'tish">
+          <i class="fa-solid fa-forward"></i>
+          <span>Avto</span>
+        </button>
+
+        <button id="clearVideosBtn" class="pl-btn" type="button" title="Ro'yxatni tozalash">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+
+      <ol id="videoList" class="pane-list"></ol>
+
+    </section>
+
+    <!-- GAPLAR -->
+    <section id="paneCues" class="panel-pane">
+
+      <div class="pane-tools">
+        <span id="cuesTitle" class="pane-title">Gaplar</span>
+
+        <button id="loadSubBtn" class="pl-btn" type="button" title="Subtitr yuklash">
+          <i class="fa-solid fa-closed-captioning"></i>
+          <span>Subtitr</span>
+        </button>
+
+        <button id="removeSubBtn" class="pl-btn" type="button" title="Subtitrni olib tashlash">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+
+      <ol id="cueList" class="pane-list"></ol>
+
+    </section>
+
+    <!-- YOZUVLAR -->
+    <section id="paneTakes" class="panel-pane">
+
+      <div class="pane-tools">
+        <span id="takesTitle" class="pane-title">Yozuvlar</span>
+
+        <button id="clearTakesBtn" class="pl-btn" type="button" title="Barcha yozuvlarni o'chirish">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </div>
+
+      <ol id="takeList" class="pane-list"></ol>
+
+    </section>
 
   </div>
 
   <!-- Fayl sudrab tashlanganda ko'rinadi -->
   <div id="dropOverlay" aria-hidden="true">
     <div class="drop-box">
-      <i class="fa-solid fa-file-pdf"></i>
-      <i class="fa-solid fa-music"></i>
-      <p>PDF yoki audio faylni shu yerga tashlang</p>
+      <i class="fa-solid fa-film"></i>
+      <p>Video (va subtitr) faylni shu yerga tashlang</p>
     </div>
   </div>
 
-  <audio id="audio" preload="metadata"></audio>
-
-
-  <!-- =======================================================
-       JAVASCRIPT
-  ======================================================== -->
+  <!-- O'z yozuvingizni ijro etish uchun -->
+  <audio id="takeAudio" preload="auto"></audio>
 
   <script type="module" src="./js/app.js"></script>
 
