@@ -1,0 +1,749 @@
+/* =========================================================
+   Shadowing Studio — dastur uslublari
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #0f172a;
+  color: white;
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+/* =========================================================
+   HEADER BUTTONS
+========================================================= */
+
+.hdr-btn {
+  height: 32px;
+  min-width: 32px;
+  padding: 0 9px;
+  border-radius: 7px;
+  border: 1px solid #475569;
+  background: #334155;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: 0.15s;
+  font-size: 13px;
+}
+
+.hdr-btn:hover:not(:disabled) {
+  background: #475569;
+}
+
+.hdr-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+/* =========================================================
+   STAGE (video maydoni)
+========================================================= */
+
+#stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #111827;
+  /* pastda suzuvchi pleyer paneli uchun joy */
+  padding-bottom: 78px;
+}
+
+#toolStrip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 12px;
+}
+
+.tool-btn {
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid #475569;
+  border-radius: 8px;
+  background: #334155;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s, opacity 0.15s;
+}
+
+.tool-btn:hover:not(:disabled) {
+  background: #475569;
+}
+
+.tool-btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.tool-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tool-btn.active {
+  background: #10b981;
+  border-color: #10b981;
+}
+
+.tool-btn.rec {
+  background: #dc2626;
+  border-color: #dc2626;
+  animation: rec-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+}
+
+.tool-sep {
+  width: 1px;
+  height: 22px;
+  background: #475569;
+  margin: 0 2px;
+}
+
+#videoFrame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  margin: 0 12px;
+  background: #000;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+#video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+  cursor: pointer;
+}
+
+/* ---------- Subtitr ---------- */
+
+#subtitleOverlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 4%;
+  display: flex;
+  justify-content: center;
+  padding: 0 5%;
+  pointer-events: none;
+}
+
+#subtitleText {
+  max-width: 100%;
+  padding: 0.25em 0.6em;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  text-align: center;
+  white-space: pre-line;
+  line-height: 1.35;
+  font-size: calc(clamp(16px, 2.4vw, 32px) * var(--sub-scale, 1));
+  text-shadow: 0 1px 3px #000;
+}
+
+#subtitleText:empty {
+  display: none;
+}
+
+body.subs-off #subtitleOverlay {
+  display: none;
+}
+
+/* ---------- Yozish indikatori ---------- */
+
+#recIndicator {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+#recIndicator.show {
+  display: flex;
+}
+
+.rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: rec-blink 1s steps(2, start) infinite;
+}
+
+@keyframes rec-blink {
+  to { visibility: hidden; }
+}
+
+/* ---------- Placeholder ---------- */
+
+#stagePlaceholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1f2937;
+  cursor: pointer;
+}
+
+#stagePlaceholder p {
+  max-width: 460px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+#stagePlaceholder.gone {
+  display: none;
+}
+
+/* =========================================================
+   PLAYER BAR (o'zgarishsiz, faqat nomlari yangilandi)
+========================================================= */
+
+.cue-control {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.cue-input {
+  width: 42px;
+  height: 32px;
+  border: 1px solid #475569;
+  border-radius: 7px;
+  background: #1e293b;
+  color: white;
+  text-align: center;
+  outline: none;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.cue-input:focus {
+  border-color: #38bdf8;
+}
+
+.cue-input:disabled {
+  opacity: 0.5;
+}
+
+.cue-input::-webkit-inner-spin-button,
+.cue-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.cue-input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+.cue-count {
+  min-width: 24px;
+  color: #cbd5e1;
+  font-size: 12px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.cue-separator {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.player-divider {
+  width: 1px;
+  height: 25px;
+  background: #475569;
+  margin: 0 3px;
+  flex-shrink: 0;
+}
+
+#playerBar {
+  position: fixed;
+  left: 50%;
+  bottom: 8px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  min-height: 56px;
+  max-width: calc(100vw - 16px);
+  padding: 7px 10px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: rgba(30, 41, 59, 0.96);
+  border: 1px solid rgba(100, 116, 139, 0.75);
+  border-radius: 16px;
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.45),
+    0 3px 10px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  white-space: nowrap;
+}
+
+.bar-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 8px;
+  background: #334155;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+}
+
+.bar-btn:hover:not(:disabled) {
+  background: #475569;
+}
+
+.bar-btn:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.bar-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.play-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.play-btn:hover:not(:disabled) {
+  background: #38bdf8;
+}
+
+.bar-btn.active {
+  background: #10b981;
+  color: white;
+}
+
+.bar-btn.danger:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+#currentTime,
+#duration {
+  flex-shrink: 0;
+  width: 38px;
+  font-size: 11px;
+  color: #cbd5e1;
+  font-variant-numeric: tabular-nums;
+}
+
+#currentTime {
+  text-align: right;
+}
+
+#duration {
+  text-align: left;
+}
+
+#progress {
+  width: 360px;
+  min-width: 100px;
+}
+
+#volume {
+  width: 55px;
+}
+
+.range {
+  height: 4px;
+  cursor: pointer;
+  accent-color: #38bdf8;
+}
+
+#speedBtn {
+  min-width: 43px;
+  padding: 0 7px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+#status {
+  min-width: 35px;
+  max-width: 150px;
+  font-size: 11px;
+  font-weight: bold;
+  color: #38bdf8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* =========================================================
+   SIDE PANEL
+========================================================= */
+
+#panelBtn {
+  position: relative;
+}
+
+#panelBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: #0ea5e9;
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  display: none;
+  pointer-events: none;
+}
+
+#sidePanel {
+  position: fixed;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  z-index: 999;
+  width: min(520px, calc(100vw - 16px));
+  height: min(60vh, 460px);
+  display: flex;
+  flex-direction: column;
+  background: rgba(30, 41, 59, 0.98);
+  border: 1px solid rgba(100, 116, 139, 0.75);
+  border-radius: 14px;
+  box-shadow:
+    0 12px 35px rgba(0, 0, 0, 0.45),
+    0 3px 10px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  overflow: hidden;
+}
+
+#sidePanel.hidden {
+  display: none;
+}
+
+.panel-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px 0;
+  border-bottom: 1px solid #334155;
+}
+
+.panel-spacer {
+  flex: 1;
+}
+
+.tab-btn {
+  padding: 7px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-btn:hover {
+  color: #e2e8f0;
+}
+
+.tab-btn.current {
+  color: #ffffff;
+  border-bottom-color: #38bdf8;
+}
+
+.panel-head .pl-btn {
+  margin-bottom: 4px;
+}
+
+.panel-pane {
+  flex: 1;
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+}
+
+.panel-pane.show {
+  display: flex;
+}
+
+.pane-tools {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #334155;
+}
+
+.pane-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pl-btn {
+  flex: none;
+  border: 0;
+  border-radius: 8px;
+  background: #334155;
+  color: #ffffff;
+  font-size: 12px;
+  padding: 6px 9px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.pl-btn:hover:not(:disabled) {
+  background: #475569;
+}
+
+.pl-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.pl-btn.on {
+  background: #0ea5e9;
+}
+
+.pane-list {
+  flex: 1;
+  min-height: 0;
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #475569 transparent;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #cbd5e1;
+  font-size: 13px;
+}
+
+.list-item:hover {
+  background: #334155;
+}
+
+.list-item.current {
+  background: rgba(14, 165, 233, 0.18);
+  color: #ffffff;
+}
+
+.item-num {
+  flex: none;
+  width: 36px;
+  text-align: center;
+  font-size: 11px;
+  color: #94a3b8;
+  font-variant-numeric: tabular-nums;
+}
+
+.list-item.current .item-num {
+  color: #38bdf8;
+}
+
+.item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-sub {
+  font-size: 11px;
+  color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.item-btn {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-btn:hover {
+  background: #475569;
+  color: #ffffff;
+}
+
+.item-btn.playing {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.list-empty {
+  padding: 22px 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* =========================================================
+   DROP OVERLAY
+========================================================= */
+
+#dropOverlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.82);
+  pointer-events: none;
+}
+
+#dropOverlay.show {
+  display: flex;
+}
+
+#dropOverlay .drop-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 36px 56px;
+  border: 2px dashed #38bdf8;
+  border-radius: 20px;
+  color: #e2e8f0;
+  font-size: 34px;
+}
+
+#dropOverlay .drop-box p {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 1100px) {
+  #progress { width: 260px; }
+  #status { max-width: 100px; }
+}
+
+@media (max-width: 900px) {
+  .tool-btn span { display: none; }
+  .tool-btn { padding: 0 11px; }
+}
+
+@media (max-width: 850px) {
+  #playerBar { gap: 5px; padding: 6px 8px; }
+  #progress { width: 180px; }
+  #volume { width: 42px; }
+  #status { display: none; }
+}
+
+@media (max-width: 650px) {
+  #playerBar {
+    width: calc(100vw - 10px);
+    max-width: calc(100vw - 10px);
+    bottom: 5px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-radius: 13px;
+    scrollbar-width: none;
+  }
+
+  #playerBar::-webkit-scrollbar { display: none; }
+
+  #progress { width: 130px; min-width: 130px; }
+  #volume { width: 38px; min-width: 38px; }
+
+  .bar-btn { width: 33px; height: 33px; }
+  .play-btn { width: 37px; height: 37px; }
+
+  #currentTime,
+  #duration { width: 34px; font-size: 10px; }
+
+  .cue-input { width: 38px; }
+}
