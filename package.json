@@ -1,8 +1,8 @@
 {
   "name": "shadowing-studio",
   "productName": "Shadowing Studio",
-  "version": "1.0.0",
-  "description": "Shadowing Studio — PDF + Audio mashq dasturi",
+  "version": "2.0.0",
+  "description": "Shadowing Studio — video bilan shadowing mashq dasturi",
   "main": "main.js",
   "author": "Shadowing Studio",
   "private": true,
@@ -11,8 +11,8 @@
     "dist": "electron-builder --win --x64 --publish never"
   },
   "devDependencies": {
-    "electron": "^28.3.3",
-    "electron-builder": "24.13.3"
+    "electron": "^37.0.0",
+    "electron-builder": "^26.0.0"
   },
   "build": {
     "appId": "com.shadowingstudio.app",
@@ -34,8 +34,18 @@
     "win": {
       "icon": "build/icon.ico",
       "target": [
-        { "target": "nsis", "arch": ["x64"] },
-        { "target": "portable", "arch": ["x64"] }
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
       ]
     },
     "nsis": {

@@ -150,8 +150,24 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
 
-    // Kamera, mikrofon, bildirishnoma kabi ruxsatlar kerak emas
-    session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    /*
+      Ruxsatlar: faqat shadowing yozuvi uchun MIKROFON (audio) ruxsat etiladi,
+      va faqat dasturning o'z sahifasi (app://) uchun. Kamera va boshqalar rad etiladi.
+    */
+    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+      const requestingUrl = String((details && details.requestingUrl) || webContents.getURL() || '');
+      const mediaTypes = (details && details.mediaTypes) || [];
+      const allowed =
+        permission === 'media' &&
+        requestingUrl.startsWith(SCHEME + '://local/') &&
+        mediaTypes.length > 0 &&
+        mediaTypes.every((type) => type === 'audio');
+      callback(allowed);
+    });
+
+    session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
+      return permission === 'media' && String(requestingOrigin).startsWith(SCHEME + '://local');
+    });
 
     registerAppProtocol();
     buildMenu();
