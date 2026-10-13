@@ -1,9 +1,10 @@
 'use strict';
 
-const { app, BrowserWindow, Menu, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, protocol, session, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { resolveAppFile } = require('./serve');
+const { encodeToMp3 } = require('./encoder');
 
 const SCHEME = 'app';
 const APP_ROOT = path.join(__dirname, 'app');
@@ -35,6 +36,81 @@ if (process.platform === 'win32') {
 }
 
 let mainWindow = null;
+
+/* ---------- MP3 kodlash (ffmpeg / LAME) ---------- */
+
+function resolveFfmpegPath() {
+
+  // Sinov uchun qo'lda ko'rsatish mumkin
+  if (process.env.SHADOWING_FFMPEG) {
+    return process.env.SHADOWING_FFMPEG;
+  }
+
+  let ffmpegPath = null;
+
+  try {
+    ffmpegPath = require('ffmpeg-static');
+  } catch (_) {
+    return null;
+  }
+
+  if (!ffmpegPath) {
+    return null;
+  }
+
+  // Yig'ilgan dasturda fayl app.asar ichida emas, app.asar.unpacked ichida turadi
+  return String(ffmpegPath).replace(/app\.asar([\\/])/, 'app.asar.unpacked$1');
+
+}
+
+function isTrustedSender(event) {
+
+  const url = (event.senderFrame && event.senderFrame.url) || event.sender.getURL();
+
+  return String(url).startsWith(SCHEME + '://local/');
+
+}
+
+function registerAudioIpc() {
+
+  ipcMain.handle('audio:mp3-available', (event) => {
+
+    if (!isTrustedSender(event)) {
+      return false;
+    }
+
+    const ffmpegPath = resolveFfmpegPath();
+
+    return Boolean(ffmpegPath && fs.existsSync(ffmpegPath));
+
+  });
+
+  ipcMain.handle('audio:encode-mp3', async (event, data, options) => {
+
+    if (!isTrustedSender(event)) {
+      throw new Error('Ruxsat yo\'q');
+    }
+
+    const ffmpegPath = resolveFfmpegPath();
+
+    if (!ffmpegPath || !fs.existsSync(ffmpegPath)) {
+      throw new Error('ffmpeg topilmadi');
+    }
+
+    const valid = data instanceof ArrayBuffer || ArrayBuffer.isView(data);
+
+    if (!valid || !data.byteLength || data.byteLength > 500 * 1024 * 1024) {
+      throw new Error('Audio ma\'lumoti noto\'g\'ri');
+    }
+
+    return encodeToMp3(data, {
+      ffmpegPath: ffmpegPath,
+      bitrateKbps: options && options.bitrateKbps
+    });
+
+  });
+
+}
 
 function registerAppProtocol() {
 
@@ -97,6 +173,7 @@ function createWindow() {
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -170,6 +247,7 @@ if (!app.requestSingleInstanceLock()) {
     });
 
     registerAppProtocol();
+    registerAudioIpc();
     buildMenu();
     createWindow();
 

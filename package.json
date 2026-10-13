@@ -1,14 +1,17 @@
 {
   "name": "shadowing-studio",
   "productName": "Shadowing Studio",
-  "version": "2.0.0",
-  "description": "Shadowing Studio — video bilan shadowing mashq dasturi",
+  "version": "2.1.0",
+  "description": "Shadowing Studio — video bilan shadowing mashq dasturi (MP3 yozuv)",
   "main": "main.js",
   "author": "Shadowing Studio",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win --x64 --publish never"
+  },
+  "dependencies": {
+    "ffmpeg-static": "^5.2.0"
   },
   "devDependencies": {
     "electron": "^37.0.0",
@@ -25,9 +28,12 @@
     "files": [
       "main.js",
       "serve.js",
+      "encoder.js",
+      "preload.js",
       "package.json",
       "app/**/*",
       "build/icon.png",
+      "node_modules/ffmpeg-static/**/*",
       "!**/*.map"
     ],
     "asar": true,
@@ -61,6 +67,9 @@
     },
     "portable": {
       "artifactName": "Shadowing-Studio-Portable-${version}.${ext}"
-    }
+    },
+    "asarUnpack": [
+      "node_modules/ffmpeg-static/**"
+    ]
   }
 }

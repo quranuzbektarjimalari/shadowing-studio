@@ -1,4 +1,4 @@
-Shadowing Studio — uchun uchinchi tomon komponentlari
+Shadowing Studio — uchinchi tomon komponentlari
 
 1) Font Awesome Free — ikonkalar (app/css/icons.css)
    Ikonkalar: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
@@ -9,3 +9,12 @@ Shadowing Studio — uchun uchinchi tomon komponentlari
    https://www.electronjs.org/
    Chromium va boshqa komponentlar litsenziyalari yig'ilgan dastur ichida
    LICENSES.chromium.html faylida keltiriladi.
+
+3) FFmpeg + LAME (yozuvni MP3 ga aylantirish) — "ffmpeg-static" paketi orqali
+   Dastur bilan alohida bajariladigan fayl (ffmpeg.exe) sifatida keladi va
+   alohida jarayon sifatida chaqiriladi. FFmpeg binar fayli GPL litsenziyasi
+   ostida; unga LAME (LGPL) kodlagichi kiritilgan.
+   https://ffmpeg.org/   https://lame.sourceforge.io/   https://github.com/eugeneware/ffmpeg-static
+   Litsenziya matnlari yig'ilgan dasturda resources/app.asar.unpacked/node_modules/ffmpeg-static/
+   papkasidagi LICENSE / README fayllarida keltirilgan. Dasturni keng tarqatmoqchi bo'lsangiz,
+   GPL talablarini (manba kodiga havola) tekshirib chiqing.

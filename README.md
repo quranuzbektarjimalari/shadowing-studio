@@ -1,6 +1,6 @@
 # Shadowing Studio — video bilan shadowing
 
-Videoni tinglab, **gap-ma-gap takrorlab** va **o'z ovozingizni yozib asl bilan solishtirib** til o'rganish dasturi. To'liq **internetsiz** ishlaydi.
+Videoni tinglab, **gap-ma-gap takrorlab** va **o'z ovozingizni studiya sifatida yozib, asl bilan solishtirib** til o'rganish dasturi. To'liq **internetsiz** ishlaydi.
 
 Tizim talabi: **Windows 10 / 11 (64-bit)**.
 
@@ -10,7 +10,8 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 - **Gaplar bo'yicha navigatsiya:** pleyerdagi `←  3 / 120  →` — subtitr gaplari bo'yicha o'tish; raqam video bilan birga avtomatik yangilanadi
 - **Gapni takrorlash (`R`):** hozirgi gap cheksiz takrorlanadi; `→` / `←` bosilsa takror keyingi/oldingi gapga ko'chadi
 - **Gapdan keyin to'xta (`S`):** har gapdan keyin video to'xtaydi — siz takrorlaysiz, `Space` bilan davom ettirasiz
-- **Yozish (`V`):** video bilan birga gapiring, mikrofon yozib oladi. **Solishtirish (`K`):** avval asl, keyin sizning ovozingiz
+- **Yozish (`V`):** video bilan birga gapiring. **Solishtirish (`K`):** avval asl, keyin sizning ovozingiz
+- **Studiya sifatidagi yozuv:** siqilmagan 16-bit PCM olinadi, **MP3 (128 / 192 / **256** / 320 kbps, CBR)** ga saqlanadi; mikrofon tanlash; filtrsiz «Studiya rejimi»; yozish paytida daraja ko'rsatkichi va clipping ogohlantirishi
 - Pleyer: tezlik (0.5x–2x), ovoz, A-B takror, loop, playlist (bir nechta video), avto-o'tish
 - Videoni / subtitrni oynaga **sudrab tashlash** mumkin
 
@@ -24,6 +25,17 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 
 > Yozishda **quloqchin** taqing — aks holda videoning ovozi mikrofonga tushib qoladi.
 
+## Ovoz yozish sifati (studiya mikrofoni uchun)
+
+Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
+
+- **Mikrofon:** ro'yxatdan studiya mikrofoningiz (yoki audio interfeys) kirishini tanlang. Tanlov eslab qolinadi. Tanlangan qurilma uzilgan bo'lsa, dastur standart mikrofonga o'tadi va sizga xabar beradi. Yozish boshlanganda qaysi mikrofon, nechta kanal va necha kHz ekani video ustida ko'rsatiladi.
+- **Studiya rejimi (filtrsiz)** — **standart holatda yoqiq:** brauzerning exo bostirish, shovqin bostirish va avtomatik kuchaytirish filtrlari **o'chiq**, mikrofoningiz ovozi buzilmaydi. Karnaydan eshitsangiz (quloqchinsiz), shu tugmani o'chiring — exo/shovqin filtri yoqiladi.
+- **MP3 sifati:** 128 / 192 / **256 (standart)** / 320 kbps, doimiy bitreyt (CBR). 128 kbps dan past sifat umuman tanlab bo'lmaydi. Sifatni yozuvdan keyin o'zgartirsangiz, saqlashda yozuv tanlangan sifatda qayta tayyorlanadi.
+- **Qanday olinadi:** mikrofondan siqilmagan (WAV, 16-bit) yoziladi, shuning uchun yozish paytida sifat yo'qolmaydi. MP3 ga aylantirish yozuvdan keyin fonda (LAME kodlagichi) bajariladi; **Saqlash** (⬇) MP3 faylni beradi.
+- **Interfeys kanallari:** audio interfeysda mikrofon faqat bitta kanalga ulangan bo'lsa (masalan, Input 1), dastur o'sha kanalni avtomatik tanlaydi, ovoz 6 dB pasayib ketmaydi.
+- **Daraja ko'rsatkichi:** yozish paytida video ustida. Yozuv tugagach cho'qqi darajasi (dB) yozuv yonida ko'rinadi. Ovoz kesilsa (clipping), ogohlantirish chiqadi — mikrofon gain'ini pasaytiring. Ovoz juda past bo'lsa, buning ham haqida xabar beriladi.
+
 ## 1. `.exe` o'rnatuvchini olish
 
 ### A yo'li — o'z Windows kompyuteringizda
@@ -32,10 +44,10 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 2. Zip'ni chiqarib, papkani istalgan joyga qo'ying.
 3. **`build.bat`** ni ikki marta bosing.
 4. 3–10 daqiqadan so'ng **`dist`** papkasida:
-   - `Shadowing-Studio-Setup-2.0.0.exe` — **o'rnatuvchi** (tarqatish uchun shuni yuboring)
-   - `Shadowing-Studio-Portable-2.0.0.exe` — o'rnatmasdan ishlaydigan nusxa
+   - `Shadowing-Studio-Setup-2.1.0.exe` — **o'rnatuvchi** (tarqatish uchun shuni yuboring)
+   - `Shadowing-Studio-Portable-2.1.0.exe` — o'rnatmasdan ishlaydigan nusxa
 
-> Birinchi yig'ishda internet kerak. Tayyor dastur esa internetsiz ishlaydi.
+> Birinchi yig'ishda internet kerak (Electron va MP3 kodlagichi — ffmpeg yuklanadi). Tayyor dastur esa internetsiz ishlaydi. MP3 kodlagichi tufayli o'rnatuvchi taxminan 80–100 MB bo'ladi.
 
 ### B yo'li — kompyuterga hech narsa o'rnatmasdan (GitHub)
 
@@ -46,7 +58,7 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 
 ## 2. Boshqalarga tarqatish
 
-`Shadowing-Studio-Setup-2.0.0.exe` ni yuboring. Qabul qiluvchi ikki marta bosib o'rnatadi; Administrator huquqi shart emas.
+`Shadowing-Studio-Setup-2.1.0.exe` ni yuboring. Qabul qiluvchi ikki marta bosib o'rnatadi; Administrator huquqi shart emas.
 
 **«Windows kompyuteringizni himoya qildi» (SmartScreen):** dastur raqamli imzosiz, shuning uchun birinchi ochishda ogohlantirish chiqishi mumkin. **Qo'shimcha ma'lumot → Baribir ishga tushirish**. Bu oynani yo'qotish uchun pullik kod imzolash sertifikati kerak.
 
@@ -84,13 +96,16 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 - **«Mikrofonga ruxsat berilmadi»:** Windows **Sozlamalar → Maxfiylik va xavfsizlik → Mikrofon** da «Desktop ilovalarga mikrofondan foydalanishga ruxsat berish» yoqilganini tekshiring.
 - **`build.bat`: «symbolic link / privilege» xatosi:** `build.bat` ni **Administrator sifatida** ishga tushiring yoki Windows'da **Developer Mode** ni yoqing.
 - **Antivirus o'rnatuvchini bloklaydi:** imzosiz dasturlarda uchrab turadi; manbaga ishonsangiz, istisnolarga qo'shing.
-- Yozuvlar faqat dastur ochiq turgan paytda xotirada saqlanadi (oxirgi 15 tasi). Kerakli yozuvni **saqlash** (⬇) tugmasi bilan faylga yozib oling.
+- Yozuvlar faqat dastur ochiq turgan paytda xotirada saqlanadi (oxirgi 15 tasi). Kerakli yozuvni **saqlash** (⬇) tugmasi bilan MP3 faylga yozib oling.
+- **MP3 o'rniga WAV saqlandi:** MP3 kodlagichi (ffmpeg) topilmasa, dastur xabar beradi va siqilmagan WAV saqlaydi — ovoz yo'qolmaydi. `build.bat` ni internet bilan qayta ishga tushirib, ffmpeg yuklanganini tekshiring.
+- **Mikrofon ovozi past / juda baland:** Windows'da mikrofon darajasini (Sozlamalar → Tizim → Ovoz → Kiritish) yoki audio interfeys gain'ini sozlang. Ideal cho'qqi: −12 … −3 dB.
 
 ## 5. Loyiha tuzilishi
 
 ```
-app/                  Dasturning o'zi (index.html, js/app.js, js/subtitles.js, css/)
-main.js, serve.js     Electron: oyna, fayllarni xavfsiz berish, mikrofon ruxsati
+app/                  Dasturning o'zi (index.html, js/app.js, subtitles.js, audio-utils.js, pcm-capture.worklet.js, css/)
+main.js, preload.js   Electron: oyna, xavfsiz ko'prik, mikrofon ruxsati, MP3 kodlash chaqiruvi
+serve.js, encoder.js  Fayllarni xavfsiz berish; WAV → MP3 (ffmpeg/LAME) aylantirgich
 build/                Ikonka (icon.ico, icon.png)
 package.json          Yig'ish sozlamalari (versiya, o'rnatuvchi nomi)
 build.bat             .exe yaratish (bir bosishda)
