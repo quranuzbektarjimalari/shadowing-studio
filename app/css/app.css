@@ -177,6 +177,33 @@ body.subs-off #subtitleOverlay {
   display: none;
 }
 
+/* ---------- Bildirishnoma (uzun xabarlar) ---------- */
+
+#toast {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: 78%;
+  padding: 8px 16px;
+  border: 1px solid #475569;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.9);
+  color: #e2e8f0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}
+
+#toast.show {
+  opacity: 1;
+}
+
 /* ---------- Yozish indikatori ---------- */
 
 #recIndicator {
@@ -197,6 +224,27 @@ body.subs-off #subtitleOverlay {
 
 #recIndicator.show {
   display: flex;
+}
+
+.rec-meter {
+  width: 90px;
+  height: 8px;
+  border-radius: 4px;
+  background: #334155;
+  overflow: hidden;
+}
+
+#recMeterFill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e 0%, #22c55e 70%, #eab308 85%, #ef4444 100%);
+  background-size: 90px 100%;
+  transition: width 0.06s linear;
+}
+
+#recIndicator.clip {
+  background: rgba(185, 28, 28, 0.85);
 }
 
 .rec-dot {
@@ -566,6 +614,67 @@ body.subs-off #subtitleOverlay {
 
 .pl-btn.on {
   background: #0ea5e9;
+}
+
+.rec-settings {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #334155;
+}
+
+.rec-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rec-label {
+  flex: none;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.rec-spacer {
+  flex: 1;
+}
+
+.rec-select {
+  flex: 1;
+  min-width: 0;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid #475569;
+  border-radius: 7px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 12px;
+  outline: none;
+}
+
+.rec-select.short {
+  flex: none;
+  width: 96px;
+}
+
+.rec-select:focus {
+  border-color: #38bdf8;
+}
+
+.rec-select:disabled {
+  opacity: 0.5;
+}
+
+.pane-note {
+  flex: none;
+  margin: 0;
+  padding: 7px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #94a3b8;
+  border-bottom: 1px solid #334155;
 }
 
 .pane-list {
