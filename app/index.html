@@ -166,8 +166,11 @@
           <span id="subtitleText"></span>
         </div>
 
+        <div id="toast" role="status" aria-live="polite"></div>
+
         <div id="recIndicator" aria-hidden="true">
           <span class="rec-dot"></span>
+          <span class="rec-meter"><span id="recMeterFill"></span></span>
           <span id="recTime">REC 0:00</span>
         </div>
 
@@ -464,6 +467,47 @@
           <i class="fa-solid fa-trash"></i>
         </button>
       </div>
+
+      <div class="rec-settings">
+
+        <div class="rec-row">
+          <span class="rec-label">Mikrofon</span>
+
+          <select id="micSelect" class="rec-select" title="Yozish uchun mikrofonni tanlang">
+            <option value="">Standart mikrofon (Windows tanlovi)</option>
+          </select>
+
+          <button id="micRefreshBtn" class="pl-btn" type="button" title="Mikrofonlar ro'yxatini yangilash">
+            <i class="fa-solid fa-rotate-right"></i>
+          </button>
+        </div>
+
+        <div class="rec-row">
+          <button
+            id="studioBtn"
+            class="pl-btn on"
+            type="button"
+            title="Studiya rejimi: brauzerning exo, shovqin bostirish va avto-gain filtrlari o'chiq — studiya mikrofoni ovozi buzilmaydi. Karnay bilan ishlasangiz, o'chirib qo'ying."
+          >
+            <i class="fa-solid fa-microphone"></i>
+            <span>Studiya rejimi (filtrsiz)</span>
+          </button>
+
+          <span class="rec-spacer"></span>
+
+          <span class="rec-label">MP3</span>
+
+          <select id="bitrateSelect" class="rec-select short" title="MP3 sifati (kamida 128 kbps)">
+            <option value="128">128 kbps</option>
+            <option value="192">192 kbps</option>
+            <option value="256" selected>256 kbps</option>
+            <option value="320">320 kbps</option>
+          </select>
+        </div>
+
+      </div>
+
+      <p id="formatNote" class="pane-note"></p>
 
       <ol id="takeList" class="pane-list"></ol>
 
