@@ -6,6 +6,14 @@ import {
   findCueIndex
 } from "./subtitles.js";
 
+import {
+  chooseChannelMode,
+  mixToMono,
+  buildWavBuffer,
+  levelToPercent,
+  CLIP_LEVEL
+} from "./audio-utils.js";
+
 /* =========================================================
    GLOBAL ERROR PROTECTION
 ========================================================= */
@@ -91,6 +99,13 @@ const clearVideosBtn = $("clearVideosBtn");
 const loadSubBtn = $("loadSubBtn");
 const removeSubBtn = $("removeSubBtn");
 const clearTakesBtn = $("clearTakesBtn");
+const studioBtn = $("studioBtn");
+const micSelect = $("micSelect");
+const micRefreshBtn = $("micRefreshBtn");
+const bitrateSelect = $("bitrateSelect");
+const formatNote = $("formatNote");
+const recMeterFill = $("recMeterFill");
+const toastEl = $("toast");
 const dropOverlay = $("dropOverlay");
 
 /* =========================================================
@@ -274,17 +289,42 @@ function naturalCompare(a, b) {
 ========================================================= */
 
 let statusTimer = null;
+let toastTimer = null;
+
+function showToast(text, durationMs) {
+
+  clearTimeout(toastTimer);
+
+  toastEl.textContent = text;
+
+  toastEl.classList.add("show");
+
+  toastTimer = setTimeout(() => {
+    toastEl.classList.remove("show");
+  }, durationMs);
+
+}
 
 function showStatus(text, durationMs = 1500) {
 
+  const message = String(text || "");
+
   clearTimeout(statusTimer);
 
-  statusEl.textContent = String(text || "");
+  statusEl.textContent = message;
+
+  statusEl.title = message;
+
+  // Pleyerdagi joy tor — uzun xabarlar videoning ustida to'liq ko'rsatiladi
+  if (message.length > 16) {
+    showToast(message, Math.max(Number(durationMs) || 0, 2200));
+  }
 
   if (Number.isFinite(durationMs) && durationMs > 0) {
 
     statusTimer = setTimeout(() => {
       statusEl.textContent = "";
+      statusEl.title = "";
     }, durationMs);
 
   }
@@ -1786,6 +1826,10 @@ function setPanelTab(tab) {
     highlightCue(true);
   }
 
+  if (tab === "takes") {
+    refreshMicList({ probe: Boolean(native) });
+  }
+
 }
 
 function openPanel(tab) {
@@ -2095,40 +2139,456 @@ cueList.addEventListener("click", (e) => {
 
 /* =========================================================
    MIKROFON BILAN YOZISH (shadowing)
+   Yozish: siqilmagan PCM (WAV) — sifat yo'qolmaydi.
+   Saqlash: o'rnatilgan dasturda MP3 (192 kbps, CBR) ga aylantiriladi.
 ========================================================= */
 
-function pickMimeType() {
+/* Faqat o'rnatilgan Windows dasturida mavjud (preload.js beradi) */
+const native = window.shadowingNative || null;
 
-  if (!window.MediaRecorder) {
-    return "";
+const MP3_BITRATE_OPTIONS = [128, 192, 256, 320];
+
+const DEFAULT_MP3_KBPS = 256;
+
+let mp3Kbps = DEFAULT_MP3_KBPS;
+let mp3Ready = false;
+
+/* Studiya rejimi: brauzerning exo / shovqin bostirish / avto-gain filtrlari O'CHIQ —
+   studiya mikrofoni ovozi buzilmaydi. Karnay bilan ishlaganda filtrni yoqish mumkin. */
+let studioMode = true;
+
+let micDeviceId = "";
+let micProbed = false;
+let micFellBack = false;
+let recMeterTimerId = 0;
+let clipUntil = 0;
+
+/* ---------- sozlamalarni eslab qolish ---------- */
+
+const SETTINGS_KEY = "shadowing-studio-settings";
+
+function loadSettings() {
+
+  try {
+    return JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}") || {};
+  } catch (_) {
+    return {};
   }
-
-  const candidates = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/ogg;codecs=opus",
-    "audio/mp4"
-  ];
-
-  return candidates.find((type) => MediaRecorder.isTypeSupported(type)) || "";
 
 }
 
-function extensionForMime(mime) {
+function saveSettings(patch) {
 
-  const type = String(mime || "").toLowerCase();
+  try {
 
-  if (type.includes("ogg")) {
-    return "ogg";
-  }
+    localStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify(Object.assign(loadSettings(), patch))
+    );
 
-  if (type.includes("mp4")) {
-    return "m4a";
-  }
-
-  return "webm";
+  } catch (_) {}
 
 }
+
+function applySavedSettings() {
+
+  const saved = loadSettings();
+
+  if (typeof saved.studioMode === "boolean") {
+    studioMode = saved.studioMode;
+  }
+
+  if (typeof saved.micDeviceId === "string") {
+    micDeviceId = saved.micDeviceId;
+  }
+
+  if (MP3_BITRATE_OPTIONS.includes(Number(saved.mp3Kbps))) {
+    mp3Kbps = Number(saved.mp3Kbps);
+  }
+
+  studioBtn.classList.toggle("on", studioMode);
+
+  bitrateSelect.value = String(mp3Kbps);
+
+}
+
+async function initMp3Support() {
+
+  try {
+
+    mp3Ready =
+      Boolean(native) &&
+      typeof native.mp3Available === "function" &&
+      Boolean(await native.mp3Available());
+
+  } catch (error) {
+
+    console.error("MP3 support check failed:", error);
+
+    mp3Ready = false;
+
+  }
+
+  updateFormatNote();
+
+  renderTakeList();
+
+}
+
+function updateFormatNote() {
+
+  bitrateSelect.disabled = !mp3Ready;
+
+  formatNote.textContent = mp3Ready
+    ? "Saqlash: MP3, " + mp3Kbps + " kbps (CBR). Yozish siqilmagan (WAV, 16-bit) olinadi — " +
+      "sifat yo'qolmaydi; MP3 saqlashdan oldin fonda tayyorlanadi."
+    : "MP3 kodlagichi mavjud emas — yozuvlar siqilmagan WAV (16-bit) formatida saqlanadi. " +
+      "MP3 uchun o'rnatilgan Windows dasturidan foydalaning.";
+
+}
+
+function setStudioMode(on) {
+
+  studioMode = on;
+
+  studioBtn.classList.toggle("on", on);
+
+  saveSettings({ studioMode: on });
+
+  showStatus(
+    on
+      ? "Studiya rejimi: filtrsiz, toza ovoz"
+      : "Exo / shovqin filtri yoqildi (karnay bilan ishlash uchun)",
+    3500
+  );
+
+}
+
+studioBtn.addEventListener("click", () => setStudioMode(!studioMode));
+
+bitrateSelect.addEventListener("change", () => {
+
+  const value = Number(bitrateSelect.value);
+
+  if (MP3_BITRATE_OPTIONS.includes(value)) {
+
+    mp3Kbps = value;
+
+    saveSettings({ mp3Kbps: value });
+
+    updateFormatNote();
+
+    showStatus("MP3 sifati: " + value + " kbps", 2500);
+
+  }
+
+  // Tanlagandan keyin fokus olib tashlanadi, aks holda tezkor tugmalar ishlamay qoladi
+  bitrateSelect.blur();
+
+});
+
+/* ---------- mikrofon tanlash ---------- */
+
+async function refreshMicList(options = {}) {
+
+  const media = navigator.mediaDevices;
+
+  if (!media || typeof media.enumerateDevices !== "function") {
+    return;
+  }
+
+  // Qurilma nomlari mikrofon ruxsatidan keyingina ko'rinadi
+  if (options.probe && !micProbed) {
+
+    micProbed = true;
+
+    try {
+
+      const probe = await media.getUserMedia({ audio: true });
+
+      probe.getTracks().forEach((track) => track.stop());
+
+    } catch (_) {}
+
+  }
+
+  let devices = [];
+
+  try {
+
+    devices = (await media.enumerateDevices()).filter(
+      (device) =>
+        device.kind === "audioinput" &&
+        device.deviceId !== "default" &&
+        device.deviceId !== "communications"
+    );
+
+  } catch (error) {
+
+    console.error("enumerateDevices error:", error);
+
+  }
+
+  micSelect.replaceChildren();
+
+  const standard = document.createElement("option");
+
+  standard.value = "";
+
+  standard.textContent = "Standart mikrofon (Windows tanlovi)";
+
+  micSelect.appendChild(standard);
+
+  devices.forEach((device, index) => {
+
+    const option = document.createElement("option");
+
+    option.value = device.deviceId;
+
+    option.textContent = device.label || "Mikrofon " + (index + 1);
+
+    micSelect.appendChild(option);
+
+  });
+
+  micSelect.value = devices.some((device) => device.deviceId === micDeviceId)
+    ? micDeviceId
+    : "";
+
+}
+
+micSelect.addEventListener("change", () => {
+
+  micDeviceId = micSelect.value;
+
+  saveSettings({ micDeviceId: micDeviceId });
+
+  showStatus(
+    micDeviceId ? "Mikrofon tanlandi" : "Standart mikrofon tanlandi",
+    2500
+  );
+
+  micSelect.blur();
+
+});
+
+micRefreshBtn.addEventListener("click", () => refreshMicList({ probe: true }));
+
+if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+
+  navigator.mediaDevices.addEventListener("devicechange", () => refreshMicList());
+
+}
+
+/* ---------- siqilmagan PCM yozuvchi (stereo kirishni qo'llaydi) ---------- */
+
+async function createPcmRecorder(stream) {
+
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+
+  const context = new AudioCtx({ latencyHint: "interactive" });
+
+  try {
+
+    if (context.state === "suspended") {
+      await context.resume();
+    }
+
+    const left = [];
+    const right = [];
+
+    let hasRight = false;
+    let samples = 0;
+    let sumSqLeft = 0;
+    let sumSqRight = 0;
+    let levelPeak = 0;
+
+    const toInt16 = (floats) => {
+
+      const ints = new Int16Array(floats.length);
+
+      let sumSq = 0;
+      let peak = 0;
+
+      for (let i = 0; i < floats.length; i++) {
+
+        const value = Math.max(-1, Math.min(1, floats[i]));
+
+        const abs = Math.abs(value);
+
+        sumSq += value * value;
+
+        if (abs > peak) {
+          peak = abs;
+        }
+
+        ints[i] = value < 0 ? value * 32768 : value * 32767;
+
+      }
+
+      return { ints: ints, sumSq: sumSq, peak: peak };
+
+    };
+
+    const pushSamples = (l, r) => {
+
+      const a = toInt16(l);
+
+      left.push(a.ints);
+
+      sumSqLeft += a.sumSq;
+
+      levelPeak = Math.max(levelPeak, a.peak);
+
+      if (r) {
+
+        const b = toInt16(r);
+
+        right.push(b.ints);
+
+        hasRight = true;
+
+        sumSqRight += b.sumSq;
+
+        levelPeak = Math.max(levelPeak, b.peak);
+
+      }
+
+      samples += l.length;
+
+    };
+
+    const source = context.createMediaStreamSource(stream);
+
+    let node = null;
+
+    if (context.audioWorklet && typeof AudioWorkletNode === "function") {
+
+      try {
+
+        await context.audioWorklet.addModule(
+          new URL("./pcm-capture.worklet.js", import.meta.url).href
+        );
+
+        node = new AudioWorkletNode(context, "pcm-capture", {
+          numberOfInputs: 1,
+          numberOfOutputs: 1,
+          outputChannelCount: [1],
+          channelCount: 2,
+          channelCountMode: "explicit"
+        });
+
+        node.port.onmessage = (e) => pushSamples(e.data.l, e.data.r);
+
+      } catch (error) {
+
+        console.warn("AudioWorklet ishlamadi, ScriptProcessor ishlatiladi:", error);
+
+        node = null;
+
+      }
+
+    }
+
+    if (!node) {
+
+      node = context.createScriptProcessor(4096, 2, 1);
+
+      node.onaudioprocess = (e) => {
+
+        const input = e.inputBuffer;
+
+        pushSamples(
+          new Float32Array(input.getChannelData(0)),
+          input.numberOfChannels > 1
+            ? new Float32Array(input.getChannelData(1))
+            : null
+        );
+
+      };
+
+    }
+
+    // Grafni tirik ushlab turamiz, lekin ovozni karnayga chiqarmaymiz
+    const silent = context.createGain();
+
+    silent.gain.value = 0;
+
+    source.connect(node);
+
+    node.connect(silent);
+
+    silent.connect(context.destination);
+
+    return {
+
+      sampleRate: context.sampleRate,
+
+      /* Oxirgi o'qishdan beri eng baland cho'qqi (0..1) */
+      readLevel() {
+
+        const value = levelPeak;
+
+        levelPeak = 0;
+
+        return value;
+
+      },
+
+      async stop() {
+
+        try {
+
+          source.disconnect();
+          node.disconnect();
+          silent.disconnect();
+
+          if (node.port) {
+            node.port.onmessage = null;
+          }
+
+          node.onaudioprocess = null;
+
+        } catch (_) {}
+
+        await context.close().catch(() => {});
+
+        const stereo = hasRight && right.length === left.length;
+
+        return {
+          left: left,
+          right: stereo ? right : null,
+          samples: samples,
+          sumSqLeft: sumSqLeft,
+          sumSqRight: stereo ? sumSqRight : null,
+          sampleRate: context.sampleRate
+        };
+
+      }
+
+    };
+
+  } catch (error) {
+
+    context.close().catch(() => {});
+
+    throw error;
+
+  }
+
+}
+
+function formatBytes(bytes) {
+
+  if (bytes >= 1024 * 1024) {
+    return (bytes / 1024 / 1024).toFixed(1) + " MB";
+  }
+
+  return Math.max(1, Math.round(bytes / 1024)) + " KB";
+
+}
+
+/* ---------- yozish UI ---------- */
 
 function setRecUI(on) {
 
@@ -2142,7 +2602,13 @@ function setRecUI(on) {
   recIndicator.classList.toggle("show", on);
 
   if (!on) {
+
     recTimeEl.textContent = "REC 0:00";
+
+    recMeterFill.style.width = "0%";
+
+    recIndicator.classList.remove("clip");
+
   }
 
 }
@@ -2175,6 +2641,61 @@ function handleMicError(error) {
 
 }
 
+function buildAudioConstraints(useDevice) {
+
+  const constraints = {
+    channelCount: { ideal: 2 },
+    sampleRate: { ideal: 48000 },
+    echoCancellation: !studioMode,
+    noiseSuppression: !studioMode,
+    autoGainControl: false
+  };
+
+  if (useDevice && micDeviceId) {
+    constraints.deviceId = { exact: micDeviceId };
+  }
+
+  return constraints;
+
+}
+
+async function openMicStream() {
+
+  try {
+
+    return await navigator.mediaDevices.getUserMedia({
+      audio: buildAudioConstraints(true)
+    });
+
+  } catch (error) {
+
+    // Tanlangan mikrofon uzib qo'yilgan bo'lsa — standartiga qaytamiz
+    if (
+      micDeviceId &&
+      error &&
+      (error.name === "OverconstrainedError" || error.name === "NotFoundError")
+    ) {
+
+      micDeviceId = "";
+
+      saveSettings({ micDeviceId: "" });
+
+      refreshMicList();
+
+      micFellBack = true;
+
+      return navigator.mediaDevices.getUserMedia({
+        audio: buildAudioConstraints(false)
+      });
+
+    }
+
+    throw error;
+
+  }
+
+}
+
 async function startRecording() {
 
   if (recSession || recStarting) {
@@ -2189,7 +2710,7 @@ async function startRecording() {
   if (
     !navigator.mediaDevices ||
     typeof navigator.mediaDevices.getUserMedia !== "function" ||
-    !window.MediaRecorder
+    !(window.AudioContext || window.webkitAudioContext)
   ) {
 
     showStatus("Bu muhitda yozish qo'llab-quvvatlanmaydi", 4000);
@@ -2204,19 +2725,23 @@ async function startRecording() {
 
   recStarting = true;
 
-  let stream;
+  micFellBack = false;
+
+  let stream = null;
+
+  let pcm = null;
 
   try {
 
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: false
-      }
-    });
+    stream = await openMicStream();
+
+    pcm = await createPcmRecorder(stream);
 
   } catch (error) {
+
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
 
     recStarting = false;
 
@@ -2231,28 +2756,9 @@ async function startRecording() {
   // Ruxsat so'ralayotganda video olib tashlangan bo'lishi mumkin
   if (!hasVideoSource()) {
 
-    stream.getTracks().forEach((track) => track.stop());
-
-    return;
-
-  }
-
-  const mimeType = pickMimeType();
-
-  let recorder;
-
-  try {
-
-    recorder = new MediaRecorder(
-      stream,
-      mimeType ? { mimeType: mimeType } : undefined
-    );
-
-  } catch (error) {
+    await pcm.stop().catch(() => {});
 
     stream.getTracks().forEach((track) => track.stop());
-
-    handleMicError(error);
 
     return;
 
@@ -2260,47 +2766,50 @@ async function startRecording() {
 
   const track = playlist[playlistIndex];
 
-  const session = {
-    recorder: recorder,
+  recSession = {
+    pcm: pcm,
     stream: stream,
-    chunks: [],
-    mimeType: mimeType,
     videoName: track ? track.name : "video",
     startTime: Number(video.currentTime) || 0,
     endTime: 0,
     startCue: cueIdx,
     startedAt: performance.now(),
-    openPanelAfter: true
+    openPanelAfter: true,
+    stopping: false
   };
-
-  recorder.addEventListener("dataavailable", (e) => {
-
-    if (e.data && e.data.size) {
-      session.chunks.push(e.data);
-    }
-
-  });
-
-  recorder.addEventListener("stop", () => finalizeRecording(session));
-
-  recorder.addEventListener("error", (e) => {
-    console.error("MediaRecorder error:", e.error || e);
-  });
-
-  recSession = session;
-
-  recorder.start(250);
 
   setRecUI(true);
 
   recTimerId = setInterval(updateRecTimer, 250);
+
+  recMeterTimerId = setInterval(updateRecMeter, 80);
 
   // Shadowing: video bilan birga gapirasiz
   if (video.paused) {
     playVideo();
   }
 
-  showStatus("Yozilmoqda — quloqchin bilan yaxshiroq", 3000);
+  // Qaysi mikrofon va qanday sozlamada yozilayotganini ko'rsatamiz
+  const audioTrack = stream.getAudioTracks()[0];
+
+  const settings =
+    audioTrack && typeof audioTrack.getSettings === "function"
+      ? audioTrack.getSettings()
+      : {};
+
+  const label = String((audioTrack && audioTrack.label) || "Mikrofon").slice(0, 38);
+
+  showStatus(
+    "● " + label +
+    " · " + (settings.channelCount || "?") + " kanal" +
+    " · " + Math.round(pcm.sampleRate / 100) / 10 + " kHz" +
+    (studioMode ? " · filtrsiz" : " · filtr yoqiq") +
+    (micFellBack ? " · tanlangan mikrofon topilmadi, standart ishlatildi" : ""),
+    micFellBack ? 7000 : 4500
+  );
+
+  // Ruxsatdan keyin qurilma nomlari ko'rinadi
+  refreshMicList();
 
 }
 
@@ -2322,13 +2831,35 @@ function updateRecTimer() {
 
 }
 
+function updateRecMeter() {
+
+  if (!recSession || recSession.stopping) {
+    return;
+  }
+
+  const level = recSession.pcm.readLevel();
+
+  recMeterFill.style.width = levelToPercent(level).toFixed(0) + "%";
+
+  const now = performance.now();
+
+  if (level >= CLIP_LEVEL) {
+    clipUntil = now + 1500;
+  }
+
+  recIndicator.classList.toggle("clip", now < clipUntil);
+
+}
+
 function stopRecording(options = {}) {
 
   const session = recSession;
 
-  if (!session) {
+  if (!session || session.stopping) {
     return;
   }
+
+  session.stopping = true;
 
   session.endTime = video.ended
     ? getFiniteDuration()
@@ -2336,51 +2867,41 @@ function stopRecording(options = {}) {
 
   session.openPanelAfter = !options.silent;
 
+  clearInterval(recTimerId);
+
+  clearInterval(recMeterTimerId);
+
+  setRecUI(false);
+
   if (options.pauseVideo) {
     video.pause();
   }
 
-  if (session.recorder.state !== "inactive") {
-
-    try {
-      session.recorder.stop();
-    } catch (error) {
-      console.error("Recorder stop error:", error);
-      finalizeRecording(session);
-    }
-
-  } else {
-
-    finalizeRecording(session);
-
-  }
+  finalizeRecording(session);
 
 }
 
-function finalizeRecording(session) {
+async function finalizeRecording(session) {
 
-  if (session.finalized) {
-    return;
+  let result = null;
+
+  try {
+
+    result = await session.pcm.stop();
+
+  } catch (error) {
+
+    console.error("PCM stop error:", error);
+
   }
 
-  session.finalized = true;
-
   session.stream.getTracks().forEach((track) => track.stop());
-
-  clearInterval(recTimerId);
 
   if (recSession === session) {
     recSession = null;
   }
 
-  setRecUI(false);
-
-  const blob = new Blob(
-    session.chunks,
-    { type: session.recorder.mimeType || session.mimeType || "audio/webm" }
-  );
-
-  if (!blob.size) {
+  if (!result || !result.samples) {
 
     showStatus("Yozuv bo'sh chiqdi", 3000);
 
@@ -2388,11 +2909,23 @@ function finalizeRecording(session) {
 
   }
 
+  // Stereo interfeysda mikrofon bitta kanalda bo'lsa, o'sha kanal olinadi
+  const mode = chooseChannelMode(
+    result.sumSqLeft,
+    result.sumSqRight,
+    result.samples
+  );
+
+  const mixed = mixToMono(result.left, result.right, mode);
+
+  const blob = new Blob(
+    [buildWavBuffer(mixed.chunks, result.samples, result.sampleRate)],
+    { type: "audio/wav" }
+  );
+
   takeCounter++;
 
   const start = session.startTime;
-
-  const end = Math.max(session.endTime, start);
 
   const take = {
     id: takeCounter,
@@ -2400,9 +2933,16 @@ function finalizeRecording(session) {
     url: URL.createObjectURL(blob),
     videoName: session.videoName,
     start: start,
-    end: end,
-    seconds: (performance.now() - session.startedAt) / 1000,
-    cueNumber: session.startCue >= 0 ? session.startCue + 1 : 0
+    end: Math.max(session.endTime, start),
+    seconds: result.samples / result.sampleRate,
+    sampleRate: result.sampleRate,
+    peak: mixed.peak,
+    channelMode: mode,
+    cueNumber: session.startCue >= 0 ? session.startCue + 1 : 0,
+    mp3Blob: null,
+    mp3State: "none",
+    mp3Kbps: 0,
+    encodePromise: null
   };
 
   takes.unshift(take);
@@ -2417,7 +2957,26 @@ function finalizeRecording(session) {
 
   renderTakeList();
 
-  showStatus("Yozuv saqlandi", 2500);
+  if (mixed.peak >= CLIP_LEVEL) {
+
+    showStatus("Ovoz kesilgan (clipping)! Mikrofon gain'ini pasaytiring", 6000);
+
+  } else if (mixed.peak < 0.002) {
+
+    showStatus("Yozuv juda jim — mikrofon va gain'ni tekshiring", 5000);
+
+  } else {
+
+    showStatus(
+      result.right && mode !== "avg"
+        ? "Yozuv saqlandi (mikrofon kanali avtomatik tanlandi)"
+        : "Yozuv saqlandi",
+      3000
+    );
+
+  }
+
+  encodeTakeToMp3(take);
 
   if (session.openPanelAfter) {
     openPanel("takes");
@@ -2440,6 +2999,70 @@ function toggleRecording() {
 }
 
 recBtn.addEventListener("click", toggleRecording);
+
+/* ---------- MP3 ga aylantirish (o'rnatilgan dasturda) ---------- */
+
+function encodeTakeToMp3(take) {
+
+  if (!mp3Ready) {
+
+    take.mp3State = "none";
+
+    return Promise.resolve(false);
+
+  }
+
+  const kbps = mp3Kbps;
+
+  take.mp3State = "pending";
+
+  renderTakeList();
+
+  take.encodePromise = (async () => {
+
+    try {
+
+      const wavBytes = await take.blob.arrayBuffer();
+
+      const output = await native.encodeMp3(
+        wavBytes,
+        { bitrateKbps: kbps }
+      );
+
+      const bytes =
+        output instanceof Uint8Array ? output : new Uint8Array(output);
+
+      if (!bytes.length) {
+        throw new Error("MP3 natijasi bo'sh");
+      }
+
+      take.mp3Blob = new Blob([bytes], { type: "audio/mpeg" });
+
+      take.mp3Kbps = kbps;
+
+      take.mp3State = "ready";
+
+      return true;
+
+    } catch (error) {
+
+      console.error("MP3 encode error:", error);
+
+      take.mp3State = "failed";
+
+      return false;
+
+    } finally {
+
+      renderTakeList();
+
+    }
+
+  })();
+
+  return take.encodePromise;
+
+}
 
 /* =========================================================
    YOZUVLARNI IJRO ETISH VA ASL BILAN SOLISHTIRISH
@@ -2653,25 +3276,67 @@ async function compareTake(take) {
 
 compareBtn.addEventListener("click", () => compareTake(takes[0]));
 
-function downloadTake(take) {
+async function downloadTake(take) {
+
+  if (take.mp3State === "pending" && take.encodePromise) {
+
+    showStatus("MP3 tayyorlanmoqda...", 10000);
+
+    await take.encodePromise;
+
+  } else if (take.mp3State === "failed" && mp3Ready) {
+
+    // Bir marta qayta urinib ko'ramiz
+    showStatus("MP3 qayta tayyorlanmoqda...", 10000);
+
+    await encodeTakeToMp3(take);
+
+  }
+
+  // Yozuvdan keyin MP3 sifati o'zgartirilgan bo'lsa — tanlangan sifatda qayta tayyorlaymiz
+  if (mp3Ready && take.mp3State === "ready" && take.mp3Kbps !== mp3Kbps) {
+
+    showStatus("MP3 " + mp3Kbps + " kbps ga qayta tayyorlanmoqda...", 10000);
+
+    await encodeTakeToMp3(take);
+
+  }
+
+  const asMp3 = take.mp3State === "ready" && take.mp3Blob;
+
+  const blob = asMp3 ? take.mp3Blob : take.blob;
+
+  const url = asMp3 ? URL.createObjectURL(blob) : take.url;
 
   const link = document.createElement("a");
 
-  link.href = take.url;
+  link.href = url;
 
   link.download =
     "shadowing_" +
     baseName(take.videoName).replace(/[^\w.-]+/g, "_") +
     "_" +
     take.id +
-    "." +
-    extensionForMime(take.blob.type);
+    (asMp3 ? ".mp3" : ".wav");
 
   document.body.appendChild(link);
 
   link.click();
 
   link.remove();
+
+  if (asMp3) {
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+
+  showStatus(
+    asMp3
+      ? "MP3 saqlanmoqda (" + take.mp3Kbps + " kbps)"
+      : mp3Ready
+        ? "MP3 tayyorlanmadi — WAV saqlanmoqda"
+        : "WAV saqlanmoqda (MP3 faqat o'rnatilgan dasturda)",
+    3500
+  );
 
 }
 
@@ -2780,8 +3445,23 @@ function renderTakeList() {
 
     sub.className = "item-sub";
 
+    const formatText =
+      take.mp3State === "ready"
+        ? "MP3 " + take.mp3Kbps + " kbps · " + formatBytes(take.mp3Blob.size)
+        : take.mp3State === "pending"
+          ? "MP3 tayyorlanmoqda..."
+          : take.mp3State === "failed"
+            ? "MP3 xato — WAV saqlanadi"
+            : "WAV · " + formatBytes(take.blob.size);
+
+    const peakText =
+      take.peak > 0
+        ? " · cho'qqi " + Math.round(20 * Math.log10(take.peak)) + " dB"
+        : "";
+
     sub.textContent =
-      take.videoName + " · " + Math.max(1, Math.round(take.seconds)) + " s";
+      take.videoName + " · " + Math.max(1, Math.round(take.seconds)) + " s" +
+      peakText + " · " + formatText;
 
     main.append(title, sub);
 
@@ -2796,7 +3476,7 @@ function renderTakeList() {
         take.id === playingTakeId ? "playing" : ""
       ),
       makeItemButton("fa-right-left", "Asl bilan solishtirish", "compare", take.id),
-      makeItemButton("fa-download", "Faylga saqlash", "save", take.id),
+      makeItemButton("fa-download", "MP3 ga saqlash", "save", take.id),
       makeItemButton("fa-xmark", "O'chirish", "delete", take.id)
     );
 
@@ -3226,7 +3906,11 @@ window.addEventListener("beforeunload", () => {
 
   clearTimeout(statusTimer);
 
+  clearTimeout(toastTimer);
+
   clearInterval(recTimerId);
+
+  clearInterval(recMeterTimerId);
 
   if (recSession) {
 
@@ -3256,3 +3940,7 @@ renderTakeList();
 setCues([]);
 setPanelTab("videos");
 updateTitleAndPlaceholder();
+applySavedSettings();
+updateFormatNote();
+initMp3Support();
+refreshMicList();
