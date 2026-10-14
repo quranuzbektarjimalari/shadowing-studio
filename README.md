@@ -13,6 +13,7 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 - **Yozish (`V`):** video bilan birga gapiring. **Solishtirish (`K`):** avval asl, keyin sizning ovozingiz
 - **Studiya sifatidagi yozuv:** siqilmagan 16-bit PCM olinadi, **MP3 (128 / 192 / **256** / 320 kbps, CBR)** ga saqlanadi; mikrofon tanlash; filtrsiz «Studiya rejimi»; yozish paytida daraja ko'rsatkichi va clipping ogohlantirishi
 - Pleyer: tezlik (0.5x–2x), ovoz, A-B takror, loop, playlist (bir nechta video), avto-o'tish
+- **Video zoom:** `+` / `-` bilan kattalashtirish va kichiklashtirish (50%–400%), kattalashganda videoni sichqoncha bilan siljitish — masalan, so'zlovchining lablarini yaqindan ko'rish uchun
 - Videoni / subtitrni oynaga **sudrab tashlash** mumkin
 
 ## Shadowing qanday qilinadi
@@ -24,6 +25,13 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 5. **Solishtirish** (`K`) — avval asl qism, keyin sizning yozuvingiz chalinadi. Yozuvlar `Y` panelida: eshitish, solishtirish, faylga saqlash, o'chirish.
 
 > Yozishda **quloqchin** taqing — aks holda videoning ovozi mikrofonga tushib qoladi.
+
+## Video zoom
+
+- **`+` / `-`** (yoki panel tepasidagi lupa tugmalari): 25% qadam bilan 50%–400%. O'rtadagi foiz tugmasi yoki **`Z`** — 100% ga qaytaradi.
+- **`Ctrl` + g'ildirak:** kursor turgan joy tomon zoom qiladi (kursor ostidagi nuqta joyida qoladi).
+- **Siljitish:** kattalashtirilgan videoni sichqonchani bosib sudrang. Bir marta bosish esa avvalgidek play/pauza qiladi.
+- Zoom faqat video rasmiga ta'sir qiladi: **subtitr va pleyer joyida qoladi**. Boshqa videoga o'tganda zoom saqlanadi, siljitish markazga qaytadi.
 
 ## Ovoz yozish sifati (studiya mikrofoni uchun)
 
@@ -44,8 +52,8 @@ Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
 2. Zip'ni chiqarib, papkani istalgan joyga qo'ying.
 3. **`build.bat`** ni ikki marta bosing.
 4. 3–10 daqiqadan so'ng **`dist`** papkasida:
-   - `Shadowing-Studio-Setup-2.1.0.exe` — **o'rnatuvchi** (tarqatish uchun shuni yuboring)
-   - `Shadowing-Studio-Portable-2.1.0.exe` — o'rnatmasdan ishlaydigan nusxa
+   - `Shadowing-Studio-Setup-2.2.0.exe` — **o'rnatuvchi** (tarqatish uchun shuni yuboring)
+   - `Shadowing-Studio-Portable-2.2.0.exe` — o'rnatmasdan ishlaydigan nusxa
 
 > Birinchi yig'ishda internet kerak (Electron va MP3 kodlagichi — ffmpeg yuklanadi). Tayyor dastur esa internetsiz ishlaydi. MP3 kodlagichi tufayli o'rnatuvchi taxminan 80–100 MB bo'ladi.
 
@@ -58,7 +66,7 @@ Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
 
 ## 2. Boshqalarga tarqatish
 
-`Shadowing-Studio-Setup-2.1.0.exe` ni yuboring. Qabul qiluvchi ikki marta bosib o'rnatadi; Administrator huquqi shart emas.
+`Shadowing-Studio-Setup-2.2.0.exe` ni yuboring. Qabul qiluvchi ikki marta bosib o'rnatadi; Administrator huquqi shart emas.
 
 **«Windows kompyuteringizni himoya qildi» (SmartScreen):** dastur raqamli imzosiz, shuning uchun birinchi ochishda ogohlantirish chiqishi mumkin. **Qo'shimcha ma'lumot → Baribir ishga tushirish**. Bu oynani yo'qotish uchun pullik kod imzolash sertifikati kerak.
 
@@ -74,7 +82,10 @@ Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
 | `V` | Mikrofonda yozishni boshlash / to'xtatish |
 | `K` | Oxirgi yozuvni asl bilan solishtirish |
 | `T` | Subtitrni ko'rsatish / yashirish |
-| `+` / `-` | Subtitr kattaligi |
+| `[` / `]` | Subtitr kattaligini kamaytirish / oshirish |
+| `+` / `-` | Videoni kattalashtirish / kichiklashtirish (zoom) |
+| `Z` | Zoom'ni 100% ga qaytarish |
+| `Ctrl` + g'ildirak | Kursor tomon zoom (touchpadda chimchilash ham) |
 | `1` / `3` | A nuqta / B nuqta (A-B takror) |
 | `7` | A-B takrorni tozalash |
 | `4` / `6` | 2 soniya orqaga / oldinga |
