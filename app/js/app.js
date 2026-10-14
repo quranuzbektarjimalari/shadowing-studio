@@ -106,6 +106,10 @@ const bitrateSelect = $("bitrateSelect");
 const formatNote = $("formatNote");
 const recMeterFill = $("recMeterFill");
 const toastEl = $("toast");
+const videoFrame = $("videoFrame");
+const zoomOutBtn = $("zoomOutBtn");
+const zoomResetBtn = $("zoomResetBtn");
+const zoomInBtn = $("zoomInBtn");
 const dropOverlay = $("dropOverlay");
 
 /* =========================================================
@@ -157,6 +161,17 @@ let recTimerId = 0;
 let compareToken = 0;
 let compareActive = false;
 let playingTakeId = null;
+
+/* video masshtabi (zoom) va siljitish (pan) */
+const ZOOM_MIN = 0.5;
+const ZOOM_MAX = 4;
+const ZOOM_STEP = 0.25;
+
+let videoZoom = 1;
+let panX = 0;
+let panY = 0;
+let panDrag = null;
+let suppressClick = false;
 
 /* panel */
 let currentTab = "videos";
@@ -392,7 +407,17 @@ async function togglePlay() {
 
 playBtn.addEventListener("click", togglePlay);
 
-video.addEventListener("click", togglePlay);
+video.addEventListener("click", () => {
+
+  // Sudrab siljitishni tugatgan "click" video'ni to'xtatib qo'ymasin
+  if (suppressClick) {
+    suppressClick = false;
+    return;
+  }
+
+  togglePlay();
+
+});
 
 video.addEventListener("dblclick", toggleFullscreen);
 
@@ -450,6 +475,11 @@ function resetProgressUI() {
 }
 
 video.addEventListener("loadedmetadata", () => {
+
+  // Yangi videoning nisbati boshqa bo'lishi mumkin: masshtab saqlanadi, siljitish nolga qaytadi
+  panX = 0;
+  panY = 0;
+  applyVideoTransform();
 
   const total = getFiniteDuration();
 
@@ -870,6 +900,245 @@ loopBtn.addEventListener("click", () => {
   updateLoopButton();
 
 });
+
+/* =========================================================
+   VIDEO ZOOM (kattalashtirish / kichiklashtirish) va PAN (siljitish)
+   Faqat video rasmi o'zgaradi — subtitr va boshqaruv elementlari joyida qoladi.
+========================================================= */
+
+function frameSize() {
+
+  const rect = videoFrame.getBoundingClientRect();
+
+  return { w: rect.width, h: rect.height };
+
+}
+
+/* Zoom 100% bo'lgandagi video rasmining ramka ichidagi o'lchami (object-fit: contain) */
+function fittedVideoSize() {
+
+  const frame = frameSize();
+
+  const vw = video.videoWidth;
+
+  const vh = video.videoHeight;
+
+  if (!vw || !vh) {
+    return frame;
+  }
+
+  const scale = Math.min(frame.w / vw, frame.h / vh);
+
+  return { w: vw * scale, h: vh * scale };
+
+}
+
+function clampPan() {
+
+  const frame = frameSize();
+
+  const fit = fittedVideoSize();
+
+  // Kattalashgan rasm ramkadan kichik bo'lsa — siljitish yo'q (markazda turadi)
+  const maxX = Math.max(0, (fit.w * videoZoom - frame.w) / 2);
+
+  const maxY = Math.max(0, (fit.h * videoZoom - frame.h) / 2);
+
+  panX = Math.max(-maxX, Math.min(maxX, panX));
+
+  panY = Math.max(-maxY, Math.min(maxY, panY));
+
+}
+
+function applyVideoTransform() {
+
+  clampPan();
+
+  video.style.transform =
+    videoZoom === 1 && panX === 0 && panY === 0
+      ? ""
+      : "translate(" + panX + "px, " + panY + "px) scale(" + videoZoom + ")";
+
+  zoomResetBtn.textContent = Math.round(videoZoom * 100) + "%";
+
+  zoomInBtn.disabled = videoZoom >= ZOOM_MAX - 1e-9;
+
+  zoomOutBtn.disabled = videoZoom <= ZOOM_MIN + 1e-9;
+
+  videoFrame.classList.toggle("zoomed", videoZoom > 1);
+
+}
+
+/**
+ * @param {number} target  yangi masshtab (1 = 100%)
+ * @param {{x:number,y:number}=} anchor  ramka markaziga nisbatan nuqta (px) — zoom shu nuqta tomon
+ */
+function setVideoZoom(target, anchor) {
+
+  const next = Math.round(Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, target)) * 100) / 100;
+
+  const ratio = next / videoZoom;
+
+  if (anchor) {
+
+    // Kursor ostidagi nuqta joyida qoladi
+    panX = anchor.x - (anchor.x - panX) * ratio;
+
+    panY = anchor.y - (anchor.y - panY) * ratio;
+
+  } else {
+
+    panX *= ratio;
+
+    panY *= ratio;
+
+  }
+
+  videoZoom = next;
+
+  applyVideoTransform();
+
+}
+
+function zoomBy(delta) {
+
+  if (!hasVideoSource()) {
+    noVideo();
+    return;
+  }
+
+  setVideoZoom(videoZoom + delta);
+
+  showStatus("Zoom: " + Math.round(videoZoom * 100) + "%");
+
+}
+
+function resetVideoZoom() {
+
+  panX = 0;
+
+  panY = 0;
+
+  setVideoZoom(1);
+
+  showStatus("Zoom: 100%");
+
+}
+
+zoomInBtn.addEventListener("click", () => zoomBy(ZOOM_STEP));
+
+zoomOutBtn.addEventListener("click", () => zoomBy(-ZOOM_STEP));
+
+zoomResetBtn.addEventListener("click", resetVideoZoom);
+
+/* Ctrl + g'ildirak (yoki touchpad chimchilash): kursor tomon zoom */
+videoFrame.addEventListener(
+  "wheel",
+  (e) => {
+
+    if (!e.ctrlKey && !e.metaKey) {
+      return;
+    }
+
+    e.preventDefault();
+
+    if (!hasVideoSource()) {
+      return;
+    }
+
+    const rect = videoFrame.getBoundingClientRect();
+
+    setVideoZoom(
+      videoZoom * Math.exp(-e.deltaY * 0.0025),
+      {
+        x: e.clientX - (rect.left + rect.width / 2),
+        y: e.clientY - (rect.top + rect.height / 2)
+      }
+    );
+
+  },
+  { passive: false }
+);
+
+/* Kattalashtirilganda videoni sichqoncha (yoki barmoq) bilan siljitish */
+video.addEventListener("pointerdown", (e) => {
+
+  suppressClick = false;
+
+  if (e.button !== 0 || videoZoom <= 1) {
+    return;
+  }
+
+  panDrag = {
+    id: e.pointerId,
+    x: e.clientX,
+    y: e.clientY,
+    startPanX: panX,
+    startPanY: panY,
+    moved: false
+  };
+
+  try {
+    video.setPointerCapture(e.pointerId);
+  } catch (_) {}
+
+});
+
+video.addEventListener("pointermove", (e) => {
+
+  if (!panDrag || e.pointerId !== panDrag.id) {
+    return;
+  }
+
+  const dx = e.clientX - panDrag.x;
+
+  const dy = e.clientY - panDrag.y;
+
+  // Tasodifiy titroq "siljitish" deb hisoblanmasin
+  if (!panDrag.moved && Math.hypot(dx, dy) < 4) {
+    return;
+  }
+
+  panDrag.moved = true;
+
+  videoFrame.classList.add("panning");
+
+  panX = panDrag.startPanX + dx;
+
+  panY = panDrag.startPanY + dy;
+
+  applyVideoTransform();
+
+});
+
+function endPan(e) {
+
+  if (!panDrag || e.pointerId !== panDrag.id) {
+    return;
+  }
+
+  if (panDrag.moved) {
+    suppressClick = true;
+  }
+
+  panDrag = null;
+
+  videoFrame.classList.remove("panning");
+
+  try {
+    video.releasePointerCapture(e.pointerId);
+  } catch (_) {}
+
+}
+
+video.addEventListener("pointerup", endPan);
+
+video.addEventListener("pointercancel", endPan);
+
+// Oyna / ramka o'lchami o'zgarsa (to'liq ekran ham) — siljitish chegarasi qayta hisoblanadi
+if (typeof ResizeObserver !== "undefined") {
+  new ResizeObserver(() => applyVideoTransform()).observe(videoFrame);
+}
 
 /* =========================================================
    SUBTITLES: gaplar, ustki yozuv, navigatsiya
@@ -3828,13 +4097,35 @@ document.addEventListener("keydown", (e) => {
     case "+":
     case "=":
       e.preventDefault();
-      changeSubtitleSize(0.1);
+      zoomBy(ZOOM_STEP);
       break;
 
     case "-":
     case "_":
       e.preventDefault();
+      zoomBy(-ZOOM_STEP);
+      break;
+
+    case "z":
+    case "Z":
+      e.preventDefault();
+      if (hasVideoSource()) {
+        resetVideoZoom();
+      } else {
+        noVideo();
+      }
+      break;
+
+    case "[":
+    case "{":
+      e.preventDefault();
       changeSubtitleSize(-0.1);
+      break;
+
+    case "]":
+    case "}":
+      e.preventDefault();
+      changeSubtitleSize(0.1);
       break;
 
     case "c":
@@ -3940,6 +4231,7 @@ renderTakeList();
 setCues([]);
 setPanelTab("videos");
 updateTitleAndPlaceholder();
+applyVideoTransform();
 applySavedSettings();
 updateFormatNote();
 initMp3Support();
