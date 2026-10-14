@@ -141,6 +141,34 @@ body {
   object-fit: contain;
   background: #000;
   cursor: pointer;
+  transform-origin: center center;
+  will-change: transform;
+}
+
+/* Kattalashtirilganda video sudralib siljitiladi */
+#videoFrame.zoomed #video {
+  cursor: grab;
+  touch-action: none;
+}
+
+#videoFrame.panning #video {
+  cursor: grabbing;
+}
+
+.zoom-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tool-btn.icon-only {
+  padding: 0 10px;
+}
+
+.tool-btn.zoom-pct {
+  min-width: 62px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Subtitr ---------- */
