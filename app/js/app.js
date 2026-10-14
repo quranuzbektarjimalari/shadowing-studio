@@ -110,6 +110,7 @@ const videoFrame = $("videoFrame");
 const zoomOutBtn = $("zoomOutBtn");
 const zoomResetBtn = $("zoomResetBtn");
 const zoomInBtn = $("zoomInBtn");
+const miniProgress = $("miniProgress");
 const dropOverlay = $("dropOverlay");
 
 /* =========================================================
@@ -172,6 +173,13 @@ let panX = 0;
 let panY = 0;
 let panDrag = null;
 let suppressClick = false;
+
+/* to'liq ekran / boshqaruvni yashirish */
+let controlsHidden = false;
+let isFullscreen = false;
+let peekPinned = false;
+let peekTimer = 0;
+let cursorIdleTimer = 0;
 
 /* panel */
 let currentTab = "videos";
@@ -269,7 +277,10 @@ function seekBy(delta) {
 
   seekTo((Number(video.currentTime) || 0) + delta);
 
-  showStatus((delta > 0 ? "+" : "") + delta + "s");
+  showStatus(
+    (delta > 0 ? "+" : "") + delta + "s · " +
+    formatTime(video.currentTime) + " / " + formatTime(getFiniteDuration())
+  );
 
 }
 
@@ -330,9 +341,12 @@ function showStatus(text, durationMs = 1500) {
 
   statusEl.title = message;
 
-  // Pleyerdagi joy tor — uzun xabarlar videoning ustida to'liq ko'rsatiladi
+  // Pleyerdagi joy tor — uzun xabarlar videoning ustida to'liq ko'rsatiladi.
+  // Boshqaruv yashirin bo'lsa pleyer ko'rinmaydi, shuning uchun hamma xabar videoning ustida chiqadi.
   if (message.length > 16) {
     showToast(message, Math.max(Number(durationMs) || 0, 2200));
+  } else if (controlsHidden && message) {
+    showToast(message, Math.max(Number(durationMs) || 0, 1100));
   }
 
   if (Number.isFinite(durationMs) && durationMs > 0) {
@@ -403,6 +417,10 @@ async function togglePlay() {
 
   updatePlayIcon();
 
+  if (controlsHidden) {
+    showStatus(video.paused ? "Pauza" : "Ijro", 900);
+  }
+
 }
 
 playBtn.addEventListener("click", togglePlay);
@@ -423,7 +441,131 @@ video.addEventListener("dblclick", toggleFullscreen);
 
 stagePlaceholder.addEventListener("click", () => openVideoBtn.click());
 
+/* =========================================================
+   TO'LIQ EKRAN va BOSHQARUVNI YASHIRISH
+   To'liq ekranda faqat video va subtitr ko'rinadi, dastur klaviatura bilan boshqariladi.
+   Boshqaruvlar: oynaning yuqori/pastki chetiga sichqoncha olib borilganda yoki "H" bilan.
+========================================================= */
+
+function setControlsHidden(on) {
+
+  controlsHidden = on;
+
+  document.body.classList.toggle("controls-hidden", on);
+
+  if (!on) {
+
+    peekPinned = false;
+
+    clearTimeout(peekTimer);
+
+    clearTimeout(cursorIdleTimer);
+
+    document.body.classList.remove("controls-peek", "cursor-idle");
+
+  }
+
+}
+
+function peekControls() {
+
+  document.body.classList.add("controls-peek");
+
+  clearTimeout(peekTimer);
+
+  if (peekPinned) {
+    return;
+  }
+
+  const hideLater = () => {
+
+    if (peekPinned) {
+      return;
+    }
+
+    // Sichqoncha panel ustida turgan bo'lsa, yopib yubormaymiz
+    if (document.querySelector("#playerBar:hover, #toolStrip:hover, #sidePanel:hover")) {
+      peekTimer = setTimeout(hideLater, 600);
+      return;
+    }
+
+    document.body.classList.remove("controls-peek");
+
+  };
+
+  peekTimer = setTimeout(hideLater, 2500);
+
+}
+
+/* "H": to'liq ekranda — panelni qadab qo'yish / yashirish; oynada — boshqaruvni yashirish / qaytarish */
+function toggleControls() {
+
+  if (!isFullscreen) {
+
+    setControlsHidden(!controlsHidden);
+
+    showStatus(
+      controlsHidden
+        ? "Boshqaruv yashirildi (H — qaytarish)"
+        : "Boshqaruv qaytarildi",
+      2500
+    );
+
+    return;
+
+  }
+
+  if (!controlsHidden) {
+    setControlsHidden(true);
+  }
+
+  peekPinned = !peekPinned;
+
+  if (peekPinned) {
+
+    clearTimeout(peekTimer);
+
+    document.body.classList.add("controls-peek");
+
+  } else {
+
+    document.body.classList.remove("controls-peek");
+
+  }
+
+}
+
+function onFullscreenState(isFull) {
+
+  isFullscreen = Boolean(isFull);
+
+  setControlsHidden(isFullscreen);
+
+  if (isFullscreen) {
+
+    showToast(
+      "To'liq ekran · H — boshqaruv · I — ma'lumot · F yoki Esc — chiqish",
+      4500
+    );
+
+  }
+
+}
+
 async function toggleFullscreen() {
+
+  // O'rnatilgan dasturda oynaning o'zi to'liq ekranga o'tadi (Esc ham ishlaydi)
+  if (native && typeof native.toggleFullscreen === "function") {
+
+    try {
+      await native.toggleFullscreen();
+    } catch (error) {
+      console.error("Fullscreen error:", error);
+    }
+
+    return;
+
+  }
 
   try {
 
@@ -436,6 +578,68 @@ async function toggleFullscreen() {
   } catch (error) {
     console.error("Fullscreen error:", error);
   }
+
+}
+
+function initFullscreenSupport() {
+
+  document.addEventListener("fullscreenchange", () => {
+    onFullscreenState(Boolean(document.fullscreenElement));
+  });
+
+  // F11 yoki menyu orqali o'zgarganda ham holat yangilanadi
+  if (native && typeof native.onFullscreenChange === "function") {
+    native.onFullscreenChange(onFullscreenState);
+  }
+
+}
+
+document.addEventListener("mousemove", (e) => {
+
+  document.body.classList.remove("cursor-idle");
+
+  clearTimeout(cursorIdleTimer);
+
+  if (!controlsHidden) {
+    return;
+  }
+
+  // Boshqaruv yashirin: sichqoncha harakatsiz qolsa, kursor ham yashirinadi
+  cursorIdleTimer = setTimeout(() => {
+    document.body.classList.add("cursor-idle");
+  }, 2200);
+
+  const target = e.target instanceof Element ? e.target : null;
+
+  const nearEdge =
+    e.clientY >= window.innerHeight - 80 || e.clientY <= 56;
+
+  if (nearEdge || (target && target.closest("#playerBar, #toolStrip, #sidePanel"))) {
+    peekControls();
+  }
+
+});
+
+function showInfo() {
+
+  if (!hasVideoSource()) {
+    noVideo();
+    return;
+  }
+
+  let text =
+    formatTime(video.currentTime) + " / " + formatTime(getFiniteDuration()) +
+    " · " + speeds[speedIndex] + "x";
+
+  if (cues.length) {
+    text += " · Gap " + Math.max(0, cueIdx + 1) + " / " + cues.length;
+  }
+
+  if (videoZoom !== 1) {
+    text += " · Zoom " + Math.round(videoZoom * 100) + "%";
+  }
+
+  showStatus(text, 2800);
 
 }
 
@@ -462,6 +666,13 @@ function updateProgressUI() {
   currentTimeEl.textContent = formatTime(current);
 
   durationEl.textContent = formatTime(total);
+
+  miniProgress.style.setProperty(
+    "--mini-progress",
+    (total > 0 && Number.isFinite(current)
+      ? Math.max(0, Math.min(100, (current / total) * 100))
+      : 0).toFixed(2) + "%"
+  );
 
 }
 
@@ -635,6 +846,8 @@ function nextSpeed() {
 
   updateSpeed();
 
+  showStatus("Tezlik: " + speeds[speedIndex] + "x");
+
 }
 
 function resetSpeed() {
@@ -642,6 +855,8 @@ function resetSpeed() {
   speedIndex = speeds.indexOf(1);
 
   updateSpeed();
+
+  showStatus("Tezlik: 1x");
 
 }
 
@@ -693,6 +908,8 @@ function changeVolume(delta) {
 
   setVolume(video.volume + delta);
 
+  showStatus("Ovoz: " + Math.round(video.volume * 100) + "%");
+
 }
 
 volume.addEventListener("input", () => setVolume(volume.value));
@@ -722,6 +939,8 @@ muteBtn.addEventListener("click", () => {
   }
 
   updateMuteIcon(video.volume);
+
+  showStatus(video.volume > 0 ? "Ovoz yoqildi" : "Ovoz o'chirildi");
 
 });
 
@@ -898,6 +1117,12 @@ loopBtn.addEventListener("click", () => {
   }
 
   updateLoopButton();
+
+  showStatus(
+    pointA !== null && pointB !== null
+      ? (loopEnabled ? "A-B takror yoqildi" : "A-B takror o'chirildi")
+      : (video.loop ? "Video takrori yoqildi" : "Video takrori o'chirildi")
+  );
 
 });
 
@@ -1324,6 +1549,8 @@ function jumpToCue(i, options = {}) {
   } else {
 
     seekTo(cues[index].start);
+
+    showStatus("Gap " + (index + 1) + " / " + cues.length);
 
     if (options.play && video.paused) {
       playVideo();
@@ -4039,6 +4266,9 @@ document.addEventListener("keydown", (e) => {
       if (isPanelOpen()) {
         e.preventDefault();
         closePanel();
+      } else if (isFullscreen) {
+        e.preventDefault();
+        toggleFullscreen();
       }
       break;
 
@@ -4158,6 +4388,18 @@ document.addEventListener("keydown", (e) => {
       toggleFullscreen();
       break;
 
+    case "h":
+    case "H":
+      e.preventDefault();
+      toggleControls();
+      break;
+
+    case "i":
+    case "I":
+      e.preventDefault();
+      showInfo();
+      break;
+
   }
 
 });
@@ -4232,6 +4474,7 @@ setCues([]);
 setPanelTab("videos");
 updateTitleAndPlaceholder();
 applyVideoTransform();
+initFullscreenSupport();
 applySavedSettings();
 updateFormatNote();
 initMp3Support();
