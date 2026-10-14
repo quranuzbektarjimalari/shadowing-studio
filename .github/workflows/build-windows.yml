@@ -1,7 +1,7 @@
 name: Build Windows installer
 
 # Qo'lda ishga tushirish: Actions -> Build Windows installer -> Run workflow
-# yoki "v2.1.0" kabi teg yuborilganda avtomatik ishlaydi.
+# yoki "v2.2.0" kabi teg yuborilganda avtomatik ishlaydi.
 on:
   workflow_dispatch:
   push:
