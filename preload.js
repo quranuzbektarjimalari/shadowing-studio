@@ -16,6 +16,16 @@ contextBridge.exposeInMainWorld('shadowingNative', {
       'audio:encode-mp3',
       arrayBuffer,
       { bitrateKbps: options && options.bitrateKbps }
-    )
+    ),
+
+  // Oynani to'liq ekranga o'tkazish / qaytarish (Esc va F11 ham ishlaydi)
+  toggleFullscreen: () => ipcRenderer.invoke('window:toggle-fullscreen'),
+
+  // To'liq ekran holati o'zgarganda (F11, menyu, Esc) chaqiriladi
+  onFullscreenChange: (callback) => {
+    if (typeof callback === 'function') {
+      ipcRenderer.on('window:fullscreen', (_event, isFullscreen) => callback(Boolean(isFullscreen)));
+    }
+  }
 
 });

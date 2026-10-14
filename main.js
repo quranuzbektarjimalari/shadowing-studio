@@ -71,6 +71,30 @@ function isTrustedSender(event) {
 
 }
 
+function registerWindowIpc() {
+
+  ipcMain.handle('window:toggle-fullscreen', (event) => {
+
+    if (!isTrustedSender(event) || !mainWindow || mainWindow.isDestroyed()) {
+      return false;
+    }
+
+    mainWindow.setFullScreen(!mainWindow.isFullScreen());
+
+    return true;
+
+  });
+
+}
+
+function notifyFullscreen(isFullscreen) {
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('window:fullscreen', isFullscreen);
+  }
+
+}
+
 function registerAudioIpc() {
 
   ipcMain.handle('audio:mp3-available', (event) => {
@@ -185,6 +209,9 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
+  mainWindow.on('enter-full-screen', () => notifyFullscreen(true));
+  mainWindow.on('leave-full-screen', () => notifyFullscreen(false));
+
   mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
 
   // Boshqa saytga o'tish yoki yangi oyna ochishni bloklaymiz (faqat https havolalar brauzerda ochiladi)
@@ -248,6 +275,7 @@ if (!app.requestSingleInstanceLock()) {
 
     registerAppProtocol();
     registerAudioIpc();
+    registerWindowIpc();
     buildMenu();
     createWindow();
 

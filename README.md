@@ -13,6 +13,7 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 - **Yozish (`V`):** video bilan birga gapiring. **Solishtirish (`K`):** avval asl, keyin sizning ovozingiz
 - **Studiya sifatidagi yozuv:** siqilmagan 16-bit PCM olinadi, **MP3 (128 / 192 / **256** / 320 kbps, CBR)** ga saqlanadi; mikrofon tanlash; filtrsiz «Studiya rejimi»; yozish paytida daraja ko'rsatkichi va clipping ogohlantirishi
 - Pleyer: tezlik (0.5x–2x), ovoz, A-B takror, loop, playlist (bir nechta video), avto-o'tish
+- **To'liq ekran:** `F` — faqat video va subtitr qoladi, boshqaruv yashirinadi; hammasi klaviatura bilan boshqariladi, har bir amal ekranda qisqa yozuv bilan ko'rsatiladi
 - **Video zoom:** `+` / `-` bilan kattalashtirish va kichiklashtirish (50%–400%), kattalashganda videoni sichqoncha bilan siljitish — masalan, so'zlovchining lablarini yaqindan ko'rish uchun
 - Videoni / subtitrni oynaga **sudrab tashlash** mumkin
 
@@ -25,6 +26,15 @@ Tizim talabi: **Windows 10 / 11 (64-bit)**.
 5. **Solishtirish** (`K`) — avval asl qism, keyin sizning yozuvingiz chalinadi. Yozuvlar `Y` panelida: eshitish, solishtirish, faylga saqlash, o'chirish.
 
 > Yozishda **quloqchin** taqing — aks holda videoning ovozi mikrofonga tushib qoladi.
+
+## To'liq ekran (klaviatura bilan boshqarish)
+
+- **`F`** (yoki videoga 2 marta bosish, yoki `F11`) — to'liq ekran. Sarlavha, asboblar paneli va pleyer **yashirinadi**, ekranda faqat video va subtitr qoladi. Pastda ingichka chiziq ijro joyini ko'rsatadi.
+- Dastur to'liq klaviatura bilan boshqariladi — hamma tugma to'liq ekranda ham ishlaydi. Har bir amal videoning ustida qisqa yozuv bilan tasdiqlanadi: «Ijro», «Pauza», «Gap 3 / 9», «-2s · 1:05 / 4:20», «Tezlik: 1.25x», «Ovoz: 80%», «Zoom: 150%» va h.k.
+- **`I`** — ma'lumot: vaqt, tezlik, gap raqami, zoom.
+- **`H`** — to'liq ekranda boshqaruv panelini vaqtincha ko'rsatish (qadab qo'yish) va yana yashirish. Oddiy oynada `H` boshqaruvni yashiradi/qaytaradi («tomosha rejimi»).
+- **Sichqoncha:** oynaning pastki chetiga olib borsangiz pleyer, yuqori chetiga — shadowing asboblari paydo bo'ladi; pastga/yuqoriga tegmasangiz yashirin qoladi. Sichqoncha harakatsiz qolsa, kursor ham yashirinadi.
+- **`L` / `C` / `Y`** paneli (videolar, gaplar, yozuvlar) to'liq ekranda ham ochiladi; `Esc` avval panelni yopadi, keyin to'liq ekrandan chiqaradi.
 
 ## Video zoom
 
@@ -52,8 +62,8 @@ Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
 2. Zip'ni chiqarib, papkani istalgan joyga qo'ying.
 3. **`build.bat`** ni ikki marta bosing.
 4. 3–10 daqiqadan so'ng **`dist`** papkasida:
-   - `Shadowing-Studio-Setup-2.2.0.exe` — **o'rnatuvchi** (tarqatish uchun shuni yuboring)
-   - `Shadowing-Studio-Portable-2.2.0.exe` — o'rnatmasdan ishlaydigan nusxa
+   - `Shadowing-Studio-Setup-2.3.0.exe` — **o'rnatuvchi** (tarqatish uchun shuni yuboring)
+   - `Shadowing-Studio-Portable-2.3.0.exe` — o'rnatmasdan ishlaydigan nusxa
 
 > Birinchi yig'ishda internet kerak (Electron va MP3 kodlagichi — ffmpeg yuklanadi). Tayyor dastur esa internetsiz ishlaydi. MP3 kodlagichi tufayli o'rnatuvchi taxminan 80–100 MB bo'ladi.
 
@@ -66,7 +76,7 @@ Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
 
 ## 2. Boshqalarga tarqatish
 
-`Shadowing-Studio-Setup-2.2.0.exe` ni yuboring. Qabul qiluvchi ikki marta bosib o'rnatadi; Administrator huquqi shart emas.
+`Shadowing-Studio-Setup-2.3.0.exe` ni yuboring. Qabul qiluvchi ikki marta bosib o'rnatadi; Administrator huquqi shart emas.
 
 **«Windows kompyuteringizni himoya qildi» (SmartScreen):** dastur raqamli imzosiz, shuning uchun birinchi ochishda ogohlantirish chiqishi mumkin. **Qo'shimcha ma'lumot → Baribir ishga tushirish**. Bu oynani yo'qotish uchun pullik kod imzolash sertifikati kerak.
 
@@ -96,9 +106,11 @@ Yozuvlar paneli (`Y`) tepasida yozish sozlamalari bor:
 | `*` / `/` | Keyingi tezlik / 1x ga qaytarish |
 | `N` / `P` | Keyingi / oldingi video |
 | `L` / `C` / `Y` | Panel: Videolar / Gaplar / Yozuvlar |
-| `F` yoki video ustiga 2 marta bosish | To'liq ekran |
+| `F` yoki video ustiga 2 marta bosish | To'liq ekran (boshqaruv yashirinadi) |
+| `H` | Boshqaruvni ko'rsatish / yashirish |
+| `I` | Ma'lumot: vaqt, tezlik, gap, zoom |
 | `Ctrl` + `O` | Video ochish |
-| `Esc` | Panelni yopish |
+| `Esc` | Panelni yopish; panel yopiq bo'lsa — to'liq ekrandan chiqish |
 
 ## 4. Formatlar va muammolar
 
