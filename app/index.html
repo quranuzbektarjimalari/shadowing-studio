@@ -121,7 +121,7 @@
         <button
           id="subBtn"
           class="tool-btn active"
-          title="Subtitrni ko'rsatish / yashirish (T). Kattalik: + / -"
+          title="Subtitrni ko'rsatish / yashirish (T). Kattaligi: [ va ]"
           type="button"
         >
           <i class="fa-solid fa-closed-captioning"></i>
@@ -149,6 +149,37 @@
           <i class="fa-solid fa-right-left"></i>
           <span>Solishtirish</span>
         </button>
+
+        <span class="tool-sep"></span>
+
+        <div class="zoom-group" role="group" aria-label="Video masshtabi">
+
+          <button
+            id="zoomOutBtn"
+            class="tool-btn icon-only"
+            title="Videoni kichiklashtirish (-)"
+            type="button"
+          >
+            <i class="fa-solid fa-magnifying-glass-minus"></i>
+          </button>
+
+          <button
+            id="zoomResetBtn"
+            class="tool-btn zoom-pct"
+            title="Masshtabni 100% ga qaytarish (Z). Ctrl + g'ildirak: kursor tomon zoom. Kattalashtirilganda videoni sichqoncha bilan siljitish mumkin"
+            type="button"
+          >100%</button>
+
+          <button
+            id="zoomInBtn"
+            class="tool-btn icon-only"
+            title="Videoni kattalashtirish (+)"
+            type="button"
+          >
+            <i class="fa-solid fa-magnifying-glass-plus"></i>
+          </button>
+
+        </div>
 
       </div>
 
