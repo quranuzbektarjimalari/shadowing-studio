@@ -1,8 +1,8 @@
 {
   "name": "shadowing-studio",
   "productName": "Shadowing Studio",
-  "version": "2.3.0",
-  "description": "Shadowing Studio — video bilan shadowing mashq dasturi (MP3 yozuv)",
+  "version": "3.0.0",
+  "description": "Shadowing Studio — YouTube video bilan shadowing mashq dasturi (MP3 yozuv)",
   "main": "main.js",
   "author": "Shadowing Studio",
   "private": true,
@@ -28,6 +28,7 @@
     "files": [
       "main.js",
       "serve.js",
+      "appserver.js",
       "encoder.js",
       "preload.js",
       "package.json",

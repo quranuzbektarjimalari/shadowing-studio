@@ -1,41 +1,33 @@
 'use strict';
 
-const { app, BrowserWindow, Menu, ipcMain, protocol, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain, session, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { resolveAppFile } = require('./serve');
+const { createAppServer } = require('./appserver');
 const { encodeToMp3 } = require('./encoder');
 
-const SCHEME = 'app';
 const APP_ROOT = path.join(__dirname, 'app');
-const ENTRY_URL = SCHEME + '://local/index.html';
+
+/* Avval shu port ishlatiladi (sozlamalar — localStorage — port o'zgarmasa saqlanib qoladi) */
+const PREFERRED_PORT = 47285;
+
+let appOrigin = '';
+let mainWindow = null;
+
+// Audio avto-o'tish (keyingi videoni o'zi boshlash) uchun
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
 /*
-  Dastur fayllari file:// emas, maxsus app:// protokoli orqali beriladi.
-  Sabab: PDF.js ES-modullari va Web Worker'lari shu usulda ishonchli ishlaydi.
-  Bu chaqiruv app "ready" bo'lishidan oldin qilinishi shart.
+  Video kompyuter xotirasiga (diskka) yuklanmasligi uchun: YouTube videosi pleyer orqali
+  RAM buferiga oqim bo'lib keladi; diskdagi HTTP / media keshi o'chiriladi va har gal tozalanadi.
+  (Sozlamalar — localStorage — saqlanib qoladi.)
 */
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: SCHEME,
-    privileges: {
-      standard: true,
-      secure: true,
-      supportFetchAPI: true,
-      corsEnabled: true,
-      stream: true
-    }
-  }
-]);
-
-// Audio avto-o'tish (keyingi audioni o'zi boshlash) uchun
-app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+app.commandLine.appendSwitch('disk-cache-size', '1');
+app.commandLine.appendSwitch('media-cache-size', '1');
 
 if (process.platform === 'win32') {
   app.setAppUserModelId('com.shadowingstudio.app');
 }
-
-let mainWindow = null;
 
 /* ---------- MP3 kodlash (ffmpeg / LAME) ---------- */
 
@@ -67,7 +59,7 @@ function isTrustedSender(event) {
 
   const url = (event.senderFrame && event.senderFrame.url) || event.sender.getURL();
 
-  return String(url).startsWith(SCHEME + '://local/');
+  return Boolean(appOrigin) && String(url).startsWith(appOrigin + '/');
 
 }
 
@@ -136,35 +128,6 @@ function registerAudioIpc() {
 
 }
 
-function registerAppProtocol() {
-
-  protocol.handle(SCHEME, async (request) => {
-
-    const result = resolveAppFile(APP_ROOT, request.url);
-
-    if (result.status !== 200) {
-      return new Response(result.message, { status: result.status });
-    }
-
-    try {
-
-      const data = await fs.promises.readFile(result.filePath);
-
-      return new Response(data, {
-        status: 200,
-        headers: { 'Content-Type': result.mime }
-      });
-
-    } catch (_) {
-
-      return new Response('Not found', { status: 404 });
-
-    }
-
-  });
-
-}
-
 function buildMenu() {
 
   const template = [
@@ -181,6 +144,63 @@ function buildMenu() {
   ];
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+
+}
+
+function configureSession() {
+
+  const ses = session.defaultSession;
+
+  /*
+    Ruxsatlar: faqat shadowing yozuvi uchun MIKROFON (audio) ruxsat etiladi,
+    va faqat dasturning o'z sahifasi uchun. Kamera va boshqalar rad etiladi.
+  */
+  ses.setPermissionRequestHandler((webContents, permission, callback, details) => {
+
+    const requestingUrl = String((details && details.requestingUrl) || webContents.getURL() || '');
+
+    const mediaTypes = (details && details.mediaTypes) || [];
+
+    callback(
+      permission === 'media' &&
+      requestingUrl.startsWith(appOrigin + '/') &&
+      mediaTypes.length > 0 &&
+      mediaTypes.every((type) => type === 'audio')
+    );
+
+  });
+
+  ses.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
+    return permission === 'media' && String(requestingOrigin) === appOrigin;
+  });
+
+  /*
+    YouTube joylashtirilgan pleyeri so'rovida Referer bo'lishi shart (aks holda "153" xatosi).
+    Odatda brauzer o'zi yuboradi; yo'q bo'lsa, dastur manzili qo'yiladi.
+  */
+  ses.webRequest.onBeforeSendHeaders(
+    { urls: ['https://www.youtube-nocookie.com/*', 'https://www.youtube.com/*'] },
+    (details, callback) => {
+
+      const headers = details.requestHeaders;
+
+      if (!headers.Referer && !headers.referer) {
+        headers.Referer = appOrigin + '/';
+      }
+
+      callback({ requestHeaders: headers });
+
+    }
+  );
+
+  // Oddiy brauzer kabi ko'rinish: "Electron/..." va ilova nomi olib tashlanadi
+  const cleanAgent = String(app.userAgentFallback || '')
+    .replace(/\sElectron\/\S+/, '')
+    .replace(new RegExp('\\s' + String(app.getName()).replace(/[^\w]/g, '.') + '\\/\\S+'), '');
+
+  if (cleanAgent) {
+    ses.setUserAgent(cleanAgent);
+  }
 
 }
 
@@ -202,7 +222,7 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: true,
       spellcheck: false,
-      // Oyna orqa fonda bo'lsa ham audio / A-B takror to'xtab qolmasin
+      // Oyna orqa fonda bo'lsa ham video / A-B takror to'xtab qolmasin
       backgroundThrottling: false
     }
   });
@@ -214,25 +234,31 @@ function createWindow() {
 
   mainWindow.webContents.setVisualZoomLevelLimits(1, 1);
 
-  // Boshqa saytga o'tish yoki yangi oyna ochishni bloklaymiz (faqat https havolalar brauzerda ochiladi)
+  // Yangi oyna ochilmaydi; faqat https havolalar (masalan "YouTube'da ochish") brauzerda ochiladi
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+
     if (/^https:\/\//i.test(url)) {
       shell.openExternal(url);
     }
+
     return { action: 'deny' };
+
   });
 
+  // Dastur oynasi boshqa saytga o'tib ketmaydi
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith(SCHEME + '://')) {
+
+    if (!url.startsWith(appOrigin + '/')) {
       event.preventDefault();
     }
+
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 
-  mainWindow.loadURL(ENTRY_URL);
+  mainWindow.loadURL(appOrigin + '/index.html');
 
 }
 
@@ -244,36 +270,36 @@ if (!app.requestSingleInstanceLock()) {
 } else {
 
   app.on('second-instance', () => {
+
     if (mainWindow) {
+
       if (mainWindow.isMinimized()) {
         mainWindow.restore();
       }
+
       mainWindow.focus();
+
     }
+
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
 
-    /*
-      Ruxsatlar: faqat shadowing yozuvi uchun MIKROFON (audio) ruxsat etiladi,
-      va faqat dasturning o'z sahifasi (app://) uchun. Kamera va boshqalar rad etiladi.
-    */
-    session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
-      const requestingUrl = String((details && details.requestingUrl) || webContents.getURL() || '');
-      const mediaTypes = (details && details.mediaTypes) || [];
-      const allowed =
-        permission === 'media' &&
-        requestingUrl.startsWith(SCHEME + '://local/') &&
-        mediaTypes.length > 0 &&
-        mediaTypes.every((type) => type === 'audio');
-      callback(allowed);
+    const { server, listen } = createAppServer(APP_ROOT);
+
+    const port = await listen(PREFERRED_PORT);
+
+    appOrigin = 'http://localhost:' + port;
+
+    app.on('will-quit', () => {
+      server.close();
+      session.defaultSession.clearCache().catch(() => {});
     });
 
-    session.defaultSession.setPermissionCheckHandler((_webContents, permission, requestingOrigin) => {
-      return permission === 'media' && String(requestingOrigin).startsWith(SCHEME + '://local');
-    });
+    configureSession();
 
-    registerAppProtocol();
+    // Oldingi ishdan qolgan keshni tozalaymiz
+    await session.defaultSession.clearCache().catch(() => {});
     registerAudioIpc();
     registerWindowIpc();
     buildMenu();
@@ -284,6 +310,12 @@ if (!app.requestSingleInstanceLock()) {
         createWindow();
       }
     });
+
+  }).catch((error) => {
+
+    console.error('Dastur ishga tushmadi:', error);
+
+    app.quit();
 
   });
 

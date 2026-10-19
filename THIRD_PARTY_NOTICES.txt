@@ -1,16 +1,24 @@
 Shadowing Studio — uchinchi tomon komponentlari
 
-1) Font Awesome Free — ikonkalar (app/css/icons.css)
+1) YouTube IFrame Player API (video oqimi)
+   Video YouTube'ning rasmiy joylashtirilgan (embed) pleyeri orqali ko'rsatiladi; dastur
+   videoni yuklab olmaydi va saqlamaydi, reklamani o'zgartirmaydi. Pleyer va API
+   YouTube / Google'ga tegishli va ularning shartlari ostida ishlaydi:
+   https://www.youtube.com/t/terms
+   https://developers.google.com/youtube/terms/api-services-terms-of-service
+   Shadowing Studio YouTube yoki Google bilan bog'liq emas va ular tomonidan tasdiqlanmagan.
+
+2) Font Awesome Free — ikonkalar (app/css/icons.css)
    Ikonkalar: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
    https://fontawesome.com/license/free
    (SVG ma'lumotlari react-icons paketidagi "fa6" to'plamidan olingan)
 
-2) Electron (dasturni Windows oynasida ishga tushiradi) — MIT litsenziyasi
+3) Electron (dasturni Windows oynasida ishga tushiradi) — MIT litsenziyasi
    https://www.electronjs.org/
    Chromium va boshqa komponentlar litsenziyalari yig'ilgan dastur ichida
    LICENSES.chromium.html faylida keltiriladi.
 
-3) FFmpeg + LAME (yozuvni MP3 ga aylantirish) — "ffmpeg-static" paketi orqali
+4) FFmpeg + LAME (o'z yozuvingizni MP3 ga aylantirish) — "ffmpeg-static" paketi orqali
    Dastur bilan alohida bajariladigan fayl (ffmpeg.exe) sifatida keladi va
    alohida jarayon sifatida chaqiriladi. FFmpeg binar fayli GPL litsenziyasi
    ostida; unga LAME (LGPL) kodlagichi kiritilgan.
