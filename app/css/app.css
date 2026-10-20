@@ -133,40 +133,25 @@ body {
   overflow: hidden;
 }
 
-/* YouTube pleyeri (iframe) — zoom/pan shu konteynerga qo'llanadi */
-#ytHost {
-  position: absolute;
-  inset: 0;
-  background: #000;
-  transform-origin: center center;
-  will-change: transform;
-}
-
-#ytHost iframe {
+#video {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  border: 0;
-  display: block;
-}
-
-/* Iframe ustidagi shaffof qatlam: bosish / sudrash / zoom shu yerda ushlanadi */
-#videoShield {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: transparent;
+  object-fit: contain;
+  background: #000;
   cursor: pointer;
+  transform-origin: center center;
+  will-change: transform;
 }
 
 /* Kattalashtirilganda video sudralib siljitiladi */
-#videoFrame.zoomed #videoShield {
+#videoFrame.zoomed #video {
   cursor: grab;
   touch-action: none;
 }
 
-#videoFrame.panning #videoShield {
+#videoFrame.panning #video {
   cursor: grabbing;
 }
 
@@ -189,7 +174,6 @@ body {
 /* ---------- Subtitr ---------- */
 
 #subtitleOverlay {
-  z-index: 3;
   position: absolute;
   left: 0;
   right: 0;
@@ -306,7 +290,6 @@ body.subs-off #subtitleOverlay {
 /* ---------- Placeholder ---------- */
 
 #stagePlaceholder {
-  z-index: 8;
   position: absolute;
   inset: 0;
   display: flex;
@@ -971,7 +954,7 @@ body.controls-hidden.controls-peek #sidePanel {
 }
 
 body.controls-hidden.cursor-idle,
-body.controls-hidden.cursor-idle #videoShield {
+body.controls-hidden.cursor-idle #video {
   cursor: none;
 }
 
@@ -997,91 +980,4 @@ body.controls-hidden.cursor-idle #videoShield {
 
 body.controls-hidden:not(.controls-peek) #miniProgress {
   display: block;
-}
-
-/* =========================================================
-   YOUTUBE HAVOLASI OYNASI
-========================================================= */
-
-#urlDialog {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(2, 6, 23, 0.72);
-}
-
-#urlDialog.hidden {
-  display: none;
-}
-
-.dialog-box {
-  width: min(560px, 100%);
-  padding: 18px 20px;
-  background: #1e293b;
-  border: 1px solid #475569;
-  border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
-}
-
-.dialog-title {
-  margin: 0 0 6px;
-  font-size: 17px;
-  font-weight: 700;
-}
-
-.dialog-note {
-  margin: 0 0 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  color: #94a3b8;
-}
-
-.dialog-input {
-  width: 100%;
-  resize: vertical;
-  min-height: 92px;
-  max-height: 40vh;
-  padding: 10px 12px;
-  border: 1px solid #475569;
-  border-radius: 9px;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-family: Consolas, "Courier New", monospace;
-  font-size: 13px;
-  outline: none;
-}
-
-.dialog-input:focus {
-  border-color: #38bdf8;
-}
-
-.dialog-hint {
-  min-height: 20px;
-  margin: 6px 0 2px;
-  font-size: 12px;
-  color: #94a3b8;
-}
-
-.dialog-hint.error {
-  color: #f87171;
-}
-
-.dialog-hint.ok {
-  color: #34d399;
-}
-
-.dialog-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 8px;
-}
-
-.dialog-actions .pl-btn {
-  padding: 8px 14px;
-  font-size: 13px;
 }
