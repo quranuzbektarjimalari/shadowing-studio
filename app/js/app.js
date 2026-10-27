@@ -14,6 +14,10 @@ import {
   CLIP_LEVEL
 } from "./audio-utils.js";
 
+import { YouTubeMedia } from "./youtube-media.js";
+
+import { extractYouTubeLinks } from "./youtube-url.js";
+
 /* =========================================================
    GLOBAL ERROR PROTECTION
 ========================================================= */
@@ -33,11 +37,21 @@ window.addEventListener("unhandledrejection", (event) => {
 
 const $ = (id) => document.getElementById(id);
 
-const video = $("video");
+const ytHost = $("ytHost");
+const shield = $("videoShield");
 const takeAudio = $("takeAudio");
 
-const videoInput = $("videoInput");
+/* YouTube pleyeri: video oqim bo'lib keladi (yuklanmaydi). <video> elementiga o'xshab ishlaydi. */
+const video = new YouTubeMedia(ytHost, { origin: window.location.origin });
+
 const openVideoBtn = $("openVideoBtn");
+
+const urlDialog = $("urlDialog");
+const urlText = $("urlText");
+const urlHint = $("urlHint");
+const urlOpenBtn = $("urlOpenBtn");
+const urlAddBtn = $("urlAddBtn");
+const urlCancelBtn = $("urlCancelBtn");
 const subInput = $("subInput");
 const openSubBtn = $("openSubBtn");
 
@@ -111,6 +125,13 @@ const zoomOutBtn = $("zoomOutBtn");
 const zoomResetBtn = $("zoomResetBtn");
 const zoomInBtn = $("zoomInBtn");
 const miniProgress = $("miniProgress");
+const ytZoom = $("ytZoom");
+const ytMask = $("ytMask");
+const pauseBadge = $("pauseBadge");
+const cleanBtn = $("cleanBtn");
+const aspectBtn = $("aspectBtn");
+const aspectLabel = $("aspectLabel");
+const ccBtn = $("ccBtn");
 const dropOverlay = $("dropOverlay");
 
 /* =========================================================
@@ -129,13 +150,11 @@ const MAX_RECORD_SECONDS = 600;
 let speedIndex = 2;
 let previousVolume = 1;
 
-let videoURL = null;
 
 /* playlist: { file, name, key, subFile, subName, cues } */
 let playlist = [];
 let playlistIndex = -1;
 let autoNext = true;
-let appendMode = false;
 
 /* subtitr */
 let cues = [];
@@ -174,6 +193,42 @@ let panY = 0;
 let panDrag = null;
 let suppressClick = false;
 
+/* toza ko'rinish (YouTube qatlamlarini yashirish), video shakli, YouTube subtitri */
+const ASPECT_MODES = [
+  { id: "auto", label: "Avto", ratio: 0 },
+  { id: "16:9", label: "16:9", ratio: 16 / 9 },
+  { id: "4:3", label: "4:3", ratio: 4 / 3 },
+  { id: "21:9", label: "21:9", ratio: 21 / 9 },
+  { id: "1:1", label: "1:1", ratio: 1 },
+  { id: "9:16", label: "9:16", ratio: 9 / 16 }
+];
+
+const DEFAULT_ASPECT = 16 / 9;
+
+/* oEmbed kenglik/balandlikni yaxlitlab beradi (16:9 uchun 200x113 = 1.770): standart nisbatga yaqinlashtiramiz */
+const STANDARD_RATIOS = [16 / 9, 4 / 3, 21 / 9, 1, 9 / 16, 3 / 4, 3 / 2, 2 / 3, 1.85, 2.39];
+
+function snapRatio(ratio) {
+
+  for (const standard of STANDARD_RATIOS) {
+
+    if (Math.abs(ratio / standard - 1) < 0.02) {
+      return standard;
+    }
+
+  }
+
+  return ratio;
+
+}
+
+let cleanView = true;
+let aspectMode = "auto";
+let ytCaptions = false;
+let ccLang = "";
+
+const videoInfoCache = new Map();
+
 /* to'liq ekran / boshqaruvni yashirish */
 let controlsHidden = false;
 let isFullscreen = false;
@@ -188,28 +243,8 @@ let currentTab = "videos";
    HELPERS
 ========================================================= */
 
-const VIDEO_EXTENSIONS = [
-  ".mp4", ".m4v", ".mov", ".webm", ".mkv", ".avi",
-  ".ogv", ".mpg", ".mpeg", ".wmv", ".3gp"
-];
-
 function fileName(file) {
   return String(file && file.name || "").toLowerCase();
-}
-
-function isVideoFile(file) {
-
-  if (!file) {
-    return false;
-  }
-
-  const type = String(file.type || "").toLowerCase();
-
-  return (
-    type.startsWith("video/") ||
-    VIDEO_EXTENSIONS.some((ext) => fileName(file).endsWith(ext))
-  );
-
 }
 
 function isSubtitleFile(file) {
@@ -220,16 +255,12 @@ function isSubtitleFile(file) {
 
 }
 
-function baseName(name) {
-  return String(name || "").replace(/\.[^.]+$/, "");
-}
-
 function hasVideoSource() {
   return typeof video.src === "string" && video.src.trim() !== "";
 }
 
 function noVideo() {
-  showStatus("Avval video oching");
+  showStatus("Avval YouTube havolasini kiriting (Ctrl+O)");
 }
 
 function getFiniteDuration() {
@@ -297,16 +328,6 @@ function formatTime(seconds) {
   const secs = Math.floor(value % 60);
 
   return minutes + ":" + String(secs).padStart(2, "0");
-
-}
-
-function naturalCompare(a, b) {
-
-  // "Lesson 2" "Lesson 10" dan oldin keladi
-  return a.name.localeCompare(b.name, undefined, {
-    numeric: true,
-    sensitivity: "base"
-  });
 
 }
 
@@ -425,7 +446,7 @@ async function togglePlay() {
 
 playBtn.addEventListener("click", togglePlay);
 
-video.addEventListener("click", () => {
+shield.addEventListener("click", () => {
 
   // Sudrab siljitishni tugatgan "click" video'ni to'xtatib qo'ymasin
   if (suppressClick) {
@@ -437,7 +458,7 @@ video.addEventListener("click", () => {
 
 });
 
-video.addEventListener("dblclick", toggleFullscreen);
+shield.addEventListener("dblclick", toggleFullscreen);
 
 stagePlaceholder.addEventListener("click", () => openVideoBtn.click());
 
@@ -692,12 +713,8 @@ video.addEventListener("loadedmetadata", () => {
   panY = 0;
   applyVideoTransform();
 
-  const total = getFiniteDuration();
-
-  progress.max = String(total);
-  progress.value = "0";
-  durationEl.textContent = formatTime(total);
-  currentTimeEl.textContent = "0:00";
+  // Havoladagi boshlanish vaqti (t=...) bo'lsa, haqiqiy joy ko'rsatiladi
+  updateProgressUI();
 
   tickCue(Number(video.currentTime) || 0);
 
@@ -771,22 +788,77 @@ video.addEventListener("ended", () => {
 
 });
 
+function describeVideoError(error) {
+
+  switch (error && error.code) {
+
+    case 2:
+      return "YouTube havolasi noto'g'ri";
+
+    case 5:
+      return "YouTube pleyer xatosi — qayta urinib ko'ring";
+
+    case 100:
+      return "Video topilmadi yoki yopiq (private)";
+
+    case 101:
+    case 150:
+    case 152:
+      return "Video egasi bu videoni boshqa dasturlarda ko'rsatishni taqiqlagan";
+
+    case 153:
+      return "YouTube pleyer sozlamasi xatosi (153) — dasturni qayta ishga tushiring";
+
+    case "api":
+      return "YouTube yuklanmadi — internetni tekshiring";
+
+    default:
+      return "Videoni ochib bo'lmadi";
+
+  }
+
+}
+
 video.addEventListener("error", () => {
 
   if (!hasVideoSource()) {
     return;
   }
 
-  console.error("Video element error:", video.error);
+  console.error("YouTube player error:", video.error);
 
   updatePlayIcon();
 
-  showStatus(
-    "Videoni o'qib bo'lmadi (MP4 H.264 yoki WebM tavsiya etiladi)",
-    4000
-  );
+  showStatus(describeVideoError(video.error), 6000);
 
 });
+
+// Sarlavha YouTube'dan olinadi (havola kiritilganda faqat ID ma'lum bo'ladi)
+function syncTrackTitle() {
+
+  const track = playlist[playlistIndex];
+
+  if (!track || track.id !== video.videoId) {
+    return;
+  }
+
+  const title = video.title;
+
+  if (title && title !== track.title) {
+
+    track.title = title;
+
+    renderVideoList();
+
+    updateTitleAndPlaceholder();
+
+  }
+
+}
+
+video.addEventListener("loadedmetadata", syncTrackTitle);
+video.addEventListener("canplay", syncTrackTitle);
+video.addEventListener("playing", syncTrackTitle);
 
 /* =========================================================
    FRAME LOOP — A-B / gap takrori / "gapdan keyin to'xta" aniq ishlashi uchun
@@ -1140,23 +1212,410 @@ function frameSize() {
 }
 
 /* Zoom 100% bo'lgandagi video rasmining ramka ichidagi o'lchami (object-fit: contain) */
+/* ---------- video shakli (aspect) va "toza ko'rinish" ---------- */
+
+function ratioText(ratio) {
+
+  for (const mode of ASPECT_MODES.slice(1)) {
+
+    if (Math.abs(ratio - mode.ratio) < 0.03) {
+      return mode.label;
+    }
+
+  }
+
+  return ratio.toFixed(2);
+
+}
+
+function currentAspect() {
+
+  const mode = ASPECT_MODES.find((item) => item.id === aspectMode) || ASPECT_MODES[0];
+
+  if (mode.ratio) {
+    return mode.ratio;
+  }
+
+  const track = playlist[playlistIndex];
+
+  return track && track.aspect ? track.aspect : DEFAULT_ASPECT;
+
+}
+
+/* Video kadrining ramka ichidagi o'lchami (contain): YouTube ham kadrni shunday joylashtiradi */
+function pictureBox() {
+
+  const frame = frameSize();
+
+  const ratio = currentAspect();
+
+  let w = frame.w;
+
+  let h = w / ratio;
+
+  if (h > frame.h) {
+
+    h = frame.h;
+
+    w = h * ratio;
+
+  }
+
+  return { w: w, h: h, frameW: frame.w, frameH: frame.h };
+
+}
+
+function updateAspectLabel() {
+
+  const mode = ASPECT_MODES.find((item) => item.id === aspectMode) || ASPECT_MODES[0];
+
+  aspectLabel.textContent =
+    mode.id === "auto"
+      ? "Avto · " + ratioText(currentAspect())
+      : mode.label;
+
+  aspectBtn.classList.toggle("active", mode.id !== "auto");
+
+}
+
+/*
+  YouTube sarlavha paneli, pastki tugmalar va qora soyalarni pleyerning O'Z ichida chizadi,
+  ularni CSS bilan yashirib bo'lmaydi. Shuning uchun pleyer (iframe) kesuvchi oynadan
+  yuqori va pastdan balandroq qilinadi: bu qatlamlar kesilgan joyga tushadi, video kadri esa
+  to'liq va o'sha o'lchamda qoladi.
+*/
+function layoutVideoBox() {
+
+  if (!cleanView) {
+
+    ytMask.style.cssText = "";
+
+    ytHost.style.cssText = "";
+
+    pauseBadge.style.cssText = "";
+
+    updateAspectLabel();
+
+    return;
+
+  }
+
+  const box = pictureBox();
+
+  if (box.w <= 0 || box.h <= 0) {
+    return;
+  }
+
+  // YouTube qatlamlari (sarlavha, pastki panel, soyalar) kadr balandligiga qarab kattalashadi:
+  // zaxira bilan ~30% (kamida 140 px) qirqamiz
+  const margin = Math.round(Math.max(140, Math.min(320, box.h * 0.3)));
+
+  // YouTube'ning markaziy Play tugmasidan kattaroq bo'lishi uchun kadrga mutanosib
+  const badge = Math.round(Math.max(84, Math.min(150, box.h * 0.17)));
+
+  ytMask.style.left = (box.frameW - box.w) / 2 + "px";
+  ytMask.style.top = (box.frameH - box.h) / 2 + "px";
+  ytMask.style.width = box.w + "px";
+  ytMask.style.height = box.h + "px";
+
+  ytHost.style.top = -margin + "px";
+  ytHost.style.height = box.h + 2 * margin + "px";
+
+  pauseBadge.style.width = badge + "px";
+  pauseBadge.style.height = badge + "px";
+  pauseBadge.style.margin = -badge / 2 + "px 0 0 " + -badge / 2 + "px";
+  pauseBadge.style.fontSize = Math.round(badge * 0.36) + "px";
+
+  updateAspectLabel();
+
+}
+
 function fittedVideoSize() {
 
   const frame = frameSize();
 
-  const vw = video.videoWidth;
-
-  const vh = video.videoHeight;
-
-  if (!vw || !vh) {
+  if (!cleanView) {
     return frame;
   }
 
-  const scale = Math.min(frame.w / vw, frame.h / vh);
+  const box = pictureBox();
 
-  return { w: vw * scale, h: vh * scale };
+  return { w: box.w, h: box.h };
 
 }
+
+function updateCleanButton() {
+
+  cleanBtn.classList.toggle("active", cleanView);
+
+}
+
+function toggleCleanView() {
+
+  cleanView = !cleanView;
+
+  saveSettings({ cleanView: cleanView });
+
+  updateCleanButton();
+
+  layoutVideoBox();
+
+  applyVideoTransform();
+
+  updatePauseBadge();
+
+  showStatus(
+    cleanView
+      ? "Toza ko'rinish yoqildi"
+      : "Toza ko'rinish o'chirildi (YouTube qatlamlari ko'rinadi)",
+    3000
+  );
+
+}
+
+function cycleAspect() {
+
+  const index = ASPECT_MODES.findIndex((mode) => mode.id === aspectMode);
+
+  const next = ASPECT_MODES[(index + 1) % ASPECT_MODES.length];
+
+  aspectMode = next.id;
+
+  saveSettings({ aspectMode: aspectMode });
+
+  layoutVideoBox();
+
+  applyVideoTransform();
+
+  showStatus(
+    next.id === "auto"
+      ? "Shakl: avtomatik (" + ratioText(currentAspect()) + ")"
+      : "Shakl: " + next.label,
+    2500
+  );
+
+}
+
+/* Pauza / tayyor holatida YouTube'ning markaziy Play tugmasi o'rniga o'zimizning belgi */
+function updatePauseBadge() {
+
+  const state = video.playerState;
+
+  const covering =
+    cleanView &&
+    hasVideoSource() &&
+    !video.error &&
+    (state === -1 || state === 0 || state === 2 || state === 5);
+
+  pauseBadge.classList.toggle("show", covering);
+
+  pauseBadge.classList.toggle("has-icon", covering && video.paused);
+
+}
+
+[
+  "statechange", "play", "pause", "playing", "ended",
+  "canplay", "emptied", "loadstart", "error"
+].forEach((type) => video.addEventListener(type, updatePauseBadge));
+
+cleanBtn.addEventListener("click", toggleCleanView);
+
+aspectBtn.addEventListener("click", cycleAspect);
+
+/* ---------- video haqida ma'lumot (sarlavha, shakl) ---------- */
+
+async function getVideoInfo(id) {
+
+  if (videoInfoCache.has(id)) {
+    return videoInfoCache.get(id);
+  }
+
+  let info = null;
+
+  try {
+
+    if (native && typeof native.youtubeInfo === "function") {
+
+      info = await native.youtubeInfo(id);
+
+    } else {
+
+      const response = await fetch(
+        "https://www.youtube.com/oembed?format=json&url=" +
+        encodeURIComponent("https://www.youtube.com/watch?v=" + id)
+      );
+
+      if (response.ok) {
+
+        const data = await response.json();
+
+        info = {
+          title: String(data.title || ""),
+          width: Number(data.width) || 0,
+          height: Number(data.height) || 0
+        };
+
+      }
+
+    }
+
+  } catch (_) {
+
+    info = null;
+
+  }
+
+  videoInfoCache.set(id, info);
+
+  return info;
+
+}
+
+async function applyVideoInfo(track) {
+
+  const info = await getVideoInfo(track.id);
+
+  if (!info || !playlist.includes(track)) {
+    return;
+  }
+
+  if (info.title && !track.title) {
+    track.title = info.title;
+  }
+
+  if (info.width > 0 && info.height > 0) {
+    track.aspect = Math.max(0.4, Math.min(2.6, snapRatio(info.width / info.height)));
+  }
+
+  renderVideoList();
+
+  updateTitleAndPlaceholder();
+
+  if (playlist[playlistIndex] === track) {
+
+    layoutVideoBox();
+
+    applyVideoTransform();
+
+  }
+
+}
+
+function requestVideoInfo(track) {
+
+  if (track.infoRequested) {
+    return;
+  }
+
+  track.infoRequested = true;
+
+  applyVideoInfo(track);
+
+}
+
+/* ---------- YouTube'ning o'z subtitri (CC) ---------- */
+
+function updateCcButton() {
+
+  ccBtn.classList.toggle("active", ytCaptions);
+
+}
+
+function captionName(track) {
+
+  return track ? track.languageName || track.languageCode : "";
+
+}
+
+function cycleCaptions() {
+
+  if (!hasVideoSource()) {
+    noVideo();
+    return;
+  }
+
+  const tracks = video.captionTracks();
+
+  const current = video.captionLanguage();
+
+  const index = tracks.findIndex((track) => track.languageCode === current);
+
+  // Yoqiq va bir nechta til bo'lsa — keyingi tilga o'tamiz
+  if (ytCaptions && tracks.length > 1) {
+
+    const next = index >= 0 ? index + 1 : 0;
+
+    if (next < tracks.length) {
+
+      ccLang = tracks[next].languageCode;
+
+      video.setCaptions(true, ccLang);
+
+      saveSettings({ ytCaptions: true, ccLang: ccLang });
+
+      showStatus("YouTube CC: " + captionName(tracks[next]), 2500);
+
+      return;
+
+    }
+
+  }
+
+  if (ytCaptions) {
+
+    ytCaptions = false;
+
+    video.setCaptions(false);
+
+    saveSettings({ ytCaptions: false });
+
+    updateCcButton();
+
+    showStatus("YouTube subtitri o'chirildi", 2500);
+
+    return;
+
+  }
+
+  ytCaptions = true;
+
+  video.setCaptions(true, ccLang);
+
+  saveSettings({ ytCaptions: true });
+
+  updateCcButton();
+
+  showStatus("YouTube subtitri yoqildi", 2500);
+
+  // Tillar ro'yxati YouTube'dan biroz kechikib keladi
+  setTimeout(() => {
+
+    if (!ytCaptions) {
+      return;
+    }
+
+    const list = video.captionTracks();
+
+    if (!list.length) {
+
+      showStatus("Bu videoda YouTube subtitri topilmadi", 3500);
+
+      return;
+
+    }
+
+    const language = video.captionLanguage();
+
+    showStatus(
+      "YouTube CC: " + captionName(list.find((t) => t.languageCode === language) || list[0]),
+      3000
+    );
+
+  }, 900);
+
+}
+
+ccBtn.addEventListener("click", cycleCaptions);
 
 function clampPan() {
 
@@ -1179,7 +1638,7 @@ function applyVideoTransform() {
 
   clampPan();
 
-  video.style.transform =
+  ytZoom.style.transform =
     videoZoom === 1 && panX === 0 && panY === 0
       ? ""
       : "translate(" + panX + "px, " + panY + "px) scale(" + videoZoom + ")";
@@ -1286,7 +1745,7 @@ videoFrame.addEventListener(
 );
 
 /* Kattalashtirilganda videoni sichqoncha (yoki barmoq) bilan siljitish */
-video.addEventListener("pointerdown", (e) => {
+shield.addEventListener("pointerdown", (e) => {
 
   suppressClick = false;
 
@@ -1304,12 +1763,12 @@ video.addEventListener("pointerdown", (e) => {
   };
 
   try {
-    video.setPointerCapture(e.pointerId);
+    shield.setPointerCapture(e.pointerId);
   } catch (_) {}
 
 });
 
-video.addEventListener("pointermove", (e) => {
+shield.addEventListener("pointermove", (e) => {
 
   if (!panDrag || e.pointerId !== panDrag.id) {
     return;
@@ -1351,18 +1810,21 @@ function endPan(e) {
   videoFrame.classList.remove("panning");
 
   try {
-    video.releasePointerCapture(e.pointerId);
+    shield.releasePointerCapture(e.pointerId);
   } catch (_) {}
 
 }
 
-video.addEventListener("pointerup", endPan);
+shield.addEventListener("pointerup", endPan);
 
-video.addEventListener("pointercancel", endPan);
+shield.addEventListener("pointercancel", endPan);
 
 // Oyna / ramka o'lchami o'zgarsa (to'liq ekran ham) — siljitish chegarasi qayta hisoblanadi
 if (typeof ResizeObserver !== "undefined") {
-  new ResizeObserver(() => applyVideoTransform()).observe(videoFrame);
+  new ResizeObserver(() => {
+    layoutVideoBox();
+    applyVideoTransform();
+  }).observe(videoFrame);
 }
 
 /* =========================================================
@@ -1852,7 +2314,7 @@ function applySubtitleToCurrent(file) {
 
   if (!track) {
 
-    showStatus("Avval video oching, so'ng subtitr yuklang", 3000);
+    showStatus("Avval YouTube videosini oching, so'ng subtitr yuklang", 3500);
 
     return;
 
@@ -1919,15 +2381,13 @@ subInput.addEventListener("change", (e) => {
    PLAYLIST (videolar)
 ========================================================= */
 
-function revokeVideoURL() {
+function trackName(track) {
 
-  if (videoURL) {
-
-    URL.revokeObjectURL(videoURL);
-
-    videoURL = null;
-
+  if (!track) {
+    return "";
   }
+
+  return track.title || "YouTube · " + track.id;
 
 }
 
@@ -1938,7 +2398,7 @@ function updateTitleAndPlaceholder() {
   stagePlaceholder.classList.toggle("gone", Boolean(track));
 
   document.title = track
-    ? baseName(track.name) + " — Shadowing Studio"
+    ? trackName(track) + " — Shadowing Studio"
     : "Shadowing Studio";
 
 }
@@ -1959,23 +2419,18 @@ function loadTrack(index, options = {}) {
 
   video.pause();
 
-  revokeVideoURL();
-
   clearABLoop(false);
 
   playlistIndex = index;
 
   lastTickTime = -1;
 
-  videoURL = URL.createObjectURL(track.file);
-
-  video.src = videoURL;
-
   video.loop = false;
 
-  video.load();
+  // Video YouTube'dan oqim bo'lib keladi — hech narsa kompyuterga yuklanmaydi
+  video.open(track.id, track.start || 0);
 
-  // load() tezlikni 1x ga qaytaradi — tanlangan tezlikni tiklaymiz
+  // Tanlangan tezlik yangi videoga ham qo'llanadi
   updateSpeed();
 
   resetProgressUI();
@@ -1985,6 +2440,12 @@ function loadTrack(index, options = {}) {
   updatePlayIcon();
 
   updateTitleAndPlaceholder();
+
+  layoutVideoBox();
+
+  applyVideoTransform();
+
+  requestVideoInfo(track);
 
   setCues(track.cues || []);
 
@@ -1996,8 +2457,8 @@ function loadTrack(index, options = {}) {
 
   showStatus(
     playlist.length > 1
-      ? (index + 1) + "/" + playlist.length + " · " + track.name
-      : track.name,
+      ? (index + 1) + "/" + playlist.length + " · " + trackName(track)
+      : trackName(track),
     2500
   );
 
@@ -2007,74 +2468,30 @@ function loadTrack(index, options = {}) {
 
 }
 
-function pairSubtitles(items, subs) {
+/**
+ * @param {{id:string,start:number,url:string}[]} links
+ * @param {{append?: boolean, activate?: boolean}} options
+ *   append  — mavjud ro'yxatga qo'shadi (aks holda ro'yxat almashtiriladi)
+ *   activate — qo'shilgan birinchi yangi videoga o'tadi
+ */
+function addVideoLinks(links, options = {}) {
 
-  const unused = subs.slice();
-
-  for (const item of items) {
-
-    const base = baseName(item.name).toLowerCase();
-
-    const found = unused.findIndex((sub) => {
-
-      const subBase = baseName(sub.name).toLowerCase();
-
-      return subBase === base || subBase.startsWith(base + ".");
-
-    });
-
-    if (found !== -1) {
-      item.subFile = unused.splice(found, 1)[0];
-    }
-
-  }
-
-  // Bitta video va bitta subtitr bo'lsa — nomidan qat'i nazar juftlanadi
-  if (items.length === 1 && !items[0].subFile && unused.length) {
-    items[0].subFile = unused[0];
-  }
-
-}
-
-function addMediaFiles(fileList, append) {
-
-  const all = Array.from(fileList || []);
-
-  const videos = all.filter(isVideoFile);
-
-  const subs = all.filter(isSubtitleFile);
-
-  if (!videos.length && !subs.length) {
-
-    alert("Iltimos, video fayl (MP4, WebM...) yoki subtitr (.srt / .vtt) tanlang.");
-
+  if (!links.length) {
     return;
-
   }
 
-  // Faqat subtitr tanlangan bo'lsa — joriy videoga ulanadi
-  if (!videos.length) {
+  const incoming = links.map((link) => ({
+    id: link.id,
+    start: link.start || 0,
+    url: link.url,
+    key: link.id + "@" + (link.start || 0),
+    title: "",
+    subFile: null,
+    subName: "",
+    cues: null
+  }));
 
-    applySubtitleToCurrent(subs[0]);
-
-    return;
-
-  }
-
-  const incoming = videos
-    .map((file) => ({
-      file: file,
-      name: file.name,
-      key: [file.name, file.size, file.lastModified].join("|"),
-      subFile: null,
-      subName: "",
-      cues: null
-    }))
-    .sort(naturalCompare);
-
-  pairSubtitles(incoming, subs);
-
-  if (append && playlist.length) {
+  if (options.append && playlist.length) {
 
     const known = new Set(playlist.map((track) => track.key));
 
@@ -2082,29 +2499,46 @@ function addMediaFiles(fileList, append) {
 
     if (!fresh.length) {
 
-      showStatus("Bu videolar ro'yxatda bor", 2000);
+      // Havola ro'yxatda bor — kerak bo'lsa o'shanga o'tamiz
+      if (options.activate) {
+
+        const existing = playlist.findIndex((track) => track.key === incoming[0].key);
+
+        if (existing >= 0 && existing !== playlistIndex) {
+          loadTrack(existing);
+        }
+
+      }
+
+      showStatus("Bu video ro'yxatda bor", 2000);
 
       return;
 
     }
 
-    fresh.forEach(startSubtitleParse);
+    const firstNew = playlist.length;
 
     playlist = playlist.concat(fresh);
+
+    fresh.forEach(requestVideoInfo);
 
     renderVideoList();
 
     showStatus(fresh.length + " ta video qo'shildi", 2000);
 
+    if (options.activate) {
+      loadTrack(firstNew);
+    }
+
     return;
 
   }
 
-  incoming.forEach(startSubtitleParse);
-
   playlist = incoming;
 
-  loadTrack(0, { autoplay: false });
+  incoming.forEach(requestVideoInfo);
+
+  loadTrack(0);
 
   if (playlist.length > 1) {
     openPanel("videos");
@@ -2160,11 +2594,7 @@ function clearPlaylist(showMessage = true) {
 
   playlistIndex = -1;
 
-  revokeVideoURL();
-
-  video.removeAttribute("src");
-
-  video.load();
+  video.clear();
 
   clearABLoop(false);
 
@@ -2245,44 +2675,171 @@ function nextVideo() {
 
   updatePlayIcon();
 
-  showStatus("Keyingi video uchun yangi fayl oching");
+  showStatus("Keyingi video uchun yangi havola kiriting");
 
 }
 
 prevVideoBtn.addEventListener("click", previousVideo);
 nextVideoBtn.addEventListener("click", nextVideo);
 
-openVideoBtn.addEventListener("click", () => {
+/* =========================================================
+   YOUTUBE HAVOLASI OYNASI
+========================================================= */
 
-  appendMode = false;
+let urlDialogMode = "replace";
 
-  videoInput.click();
+function isUrlDialogOpen() {
+  return !urlDialog.classList.contains("hidden");
+}
 
-});
+function updateUrlHint() {
 
-videoInput.addEventListener("change", (e) => {
+  const { links, invalid } = extractYouTubeLinks(urlText.value);
 
-  const files = e.target.files;
+  urlHint.className = "dialog-hint";
 
-  const append = appendMode;
-
-  appendMode = false;
-
-  if (!files || !files.length) {
+  if (!urlText.value.trim()) {
+    urlHint.textContent = "";
     return;
   }
 
-  addMediaFiles(files, append);
+  if (!links.length) {
+    urlHint.textContent = "YouTube havolasi topilmadi";
+    urlHint.classList.add("error");
+    return;
+  }
 
-  videoInput.value = "";
+  urlHint.textContent =
+    links.length + " ta video topildi" +
+    (invalid.length ? " · " + invalid.length + " ta havola noto'g'ri" : "");
+
+  urlHint.classList.add(invalid.length ? "error" : "ok");
+
+}
+
+function openUrlDialog(mode) {
+
+  urlDialogMode = mode === "append" ? "append" : "replace";
+
+  urlText.value = "";
+
+  updateUrlHint();
+
+  urlDialog.classList.remove("hidden");
+
+  setTimeout(() => urlText.focus(), 0);
+
+}
+
+function closeUrlDialog() {
+
+  urlDialog.classList.add("hidden");
+
+  urlText.blur();
+
+}
+
+function submitUrlDialog(append) {
+
+  const { links, invalid } = extractYouTubeLinks(urlText.value);
+
+  if (!links.length) {
+
+    urlHint.textContent = "YouTube havolasi topilmadi — havolani tekshiring";
+    urlHint.className = "dialog-hint error";
+
+    return;
+
+  }
+
+  closeUrlDialog();
+
+  addVideoLinks(links, { append: append });
+
+  if (invalid.length) {
+    showStatus(invalid.length + " ta noto'g'ri havola o'tkazib yuborildi", 3500);
+  }
+
+}
+
+openVideoBtn.addEventListener("click", () => openUrlDialog("replace"));
+
+addVideoBtn.addEventListener("click", () => openUrlDialog("append"));
+
+urlText.addEventListener("input", updateUrlHint);
+
+urlOpenBtn.addEventListener("click", () => submitUrlDialog(false));
+
+urlAddBtn.addEventListener("click", () => submitUrlDialog(true));
+
+urlCancelBtn.addEventListener("click", closeUrlDialog);
+
+// Oyna tashqarisini bosish — yopish
+urlDialog.addEventListener("pointerdown", (e) => {
+
+  if (e.target === urlDialog) {
+    closeUrlDialog();
+  }
 
 });
 
-addVideoBtn.addEventListener("click", () => {
+urlDialog.addEventListener("keydown", (e) => {
 
-  appendMode = true;
+  if (e.key === "Escape") {
 
-  videoInput.click();
+    e.preventDefault();
+
+    e.stopPropagation();
+
+    closeUrlDialog();
+
+    return;
+
+  }
+
+  // Ctrl + Enter — tezkor tasdiqlash
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+
+    e.preventDefault();
+
+    submitUrlDialog(urlDialogMode === "append");
+
+  }
+
+});
+
+// Havolani istalgan joyda Ctrl + V bilan joylashtirish
+document.addEventListener("paste", (e) => {
+
+  const target = e.target;
+
+  const tag =
+    target && typeof target.tagName === "string"
+      ? target.tagName.toUpperCase()
+      : "";
+
+  if (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    (target && target.isContentEditable) ||
+    isUrlDialogOpen()
+  ) {
+    return;
+  }
+
+  const text = e.clipboardData ? e.clipboardData.getData("text") : "";
+
+  const { links } = extractYouTubeLinks(text);
+
+  // YouTube havolasi bo'lmasa — hech narsaga aralashmaymiz
+  if (!links.length) {
+    return;
+  }
+
+  e.preventDefault();
+
+  addVideoLinks(links, { append: playlist.length > 0, activate: true });
 
 });
 
@@ -2403,7 +2960,7 @@ function renderVideoList() {
     empty.className = "list-empty";
 
     empty.textContent =
-      "Ro'yxat bo'sh. «Qo'shish» orqali video tanlang (subtitr .srt / .vtt ni birga tanlash mumkin).";
+      "Ro'yxat bo'sh. «Qo'shish» orqali YouTube havolasini kiriting yoki havolani Ctrl+V bilan joylashtiring.";
 
     videoList.appendChild(empty);
 
@@ -2417,7 +2974,7 @@ function renderVideoList() {
 
     li.dataset.index = String(i);
 
-    li.title = track.name;
+    li.title = trackName(track);
 
     const num = document.createElement("span");
 
@@ -2433,7 +2990,7 @@ function renderVideoList() {
 
     name.className = "item-text";
 
-    name.textContent = track.name;
+    name.textContent = trackName(track);
 
     const sub = document.createElement("span");
 
@@ -2536,7 +3093,7 @@ function renderCueList() {
     empty.className = "list-empty";
 
     empty.textContent =
-      "Subtitr yo'q. Videoning o'zi bilan birga .srt / .vtt faylni tanlang yoki «Subtitr» tugmasini bosing.";
+      "Subtitr yo'q. YouTube subtitrini dastur o'qiy olmaydi — gaplar bo'yicha takrorlash uchun .srt / .vtt faylni «Subtitr» tugmasi bilan yuklang.";
 
     cueList.appendChild(empty);
 
@@ -2705,6 +3262,31 @@ function applySavedSettings() {
   studioBtn.classList.toggle("on", studioMode);
 
   bitrateSelect.value = String(mp3Kbps);
+
+  if (typeof saved.cleanView === "boolean") {
+    cleanView = saved.cleanView;
+  }
+
+  if (ASPECT_MODES.some((mode) => mode.id === saved.aspectMode)) {
+    aspectMode = saved.aspectMode;
+  }
+
+  if (typeof saved.ytCaptions === "boolean") {
+    ytCaptions = saved.ytCaptions;
+  }
+
+  if (typeof saved.ccLang === "string") {
+    ccLang = saved.ccLang;
+  }
+
+  // YouTube'ning o'z subtitri: saqlangan holat har bir videoga qo'llanadi (standart — o'chiq)
+  video.setCaptions(ytCaptions, ccLang);
+
+  updateCleanButton();
+
+  updateCcButton();
+
+  layoutVideoBox();
 
 }
 
@@ -3265,7 +3847,8 @@ async function startRecording() {
   recSession = {
     pcm: pcm,
     stream: stream,
-    videoName: track ? track.name : "video",
+    videoName: track ? trackName(track) : "video",
+    videoId: track ? track.id : "",
     startTime: Number(video.currentTime) || 0,
     endTime: 0,
     startCue: cueIdx,
@@ -3428,6 +4011,7 @@ async function finalizeRecording(session) {
     blob: blob,
     url: URL.createObjectURL(blob),
     videoName: session.videoName,
+    videoId: session.videoId,
     start: start,
     end: Math.max(session.endTime, start),
     seconds: result.samples / result.sampleRate,
@@ -3690,7 +4274,7 @@ async function compareTake(take) {
   const track = playlist[playlistIndex];
 
   // Yozuv boshqa videoga tegishli bo'lsa, asl qismini topib bo'lmaydi
-  if (track && track.name !== take.videoName) {
+  if (track && take.videoId && track.id !== take.videoId) {
 
     compareActive = false;
 
@@ -3808,9 +4392,15 @@ async function downloadTake(take) {
 
   link.href = url;
 
+  const safeName =
+    String(take.videoName || "")
+      .replace(/[^\w-]+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60);
+
   link.download =
     "shadowing_" +
-    baseName(take.videoName).replace(/[^\w.-]+/g, "_") +
+    (/[A-Za-z0-9]/.test(safeName) ? safeName : take.videoId || "video") +
     "_" +
     take.id +
     (asMp3 ? ".mp3" : ".wav");
@@ -4038,11 +4628,14 @@ takeList.addEventListener("click", (e) => {
 
 let dragDepth = 0;
 
-function dragHasFiles(e) {
+function dragHasContent(e) {
 
-  return Boolean(
-    e.dataTransfer &&
-    Array.from(e.dataTransfer.types || []).includes("Files")
+  const types = Array.from((e.dataTransfer && e.dataTransfer.types) || []);
+
+  return (
+    types.includes("Files") ||
+    types.includes("text/uri-list") ||
+    types.includes("text/plain")
   );
 
 }
@@ -4055,7 +4648,7 @@ function setDropOverlay(show) {
 
 window.addEventListener("dragenter", (e) => {
 
-  if (!dragHasFiles(e)) {
+  if (!dragHasContent(e)) {
     return;
   }
 
@@ -4069,11 +4662,11 @@ window.addEventListener("dragenter", (e) => {
 
 window.addEventListener("dragover", (e) => {
 
-  if (!dragHasFiles(e)) {
+  if (!dragHasContent(e)) {
     return;
   }
 
-  // Aks holda Electron faylni ochishga urinadi
+  // Aks holda Electron faylni / havolani ochishga urinadi
   e.preventDefault();
 
   e.dataTransfer.dropEffect = "copy";
@@ -4082,7 +4675,7 @@ window.addEventListener("dragover", (e) => {
 
 window.addEventListener("dragleave", (e) => {
 
-  if (!dragHasFiles(e)) {
+  if (!dragHasContent(e)) {
     return;
   }
 
@@ -4096,7 +4689,7 @@ window.addEventListener("dragleave", (e) => {
 
 window.addEventListener("drop", (e) => {
 
-  if (!dragHasFiles(e)) {
+  if (!dragHasContent(e)) {
     return;
   }
 
@@ -4106,18 +4699,31 @@ window.addEventListener("drop", (e) => {
 
   setDropOverlay(false);
 
-  const files = Array.from(e.dataTransfer.files || []);
+  const subs = Array.from(e.dataTransfer.files || []).filter(isSubtitleFile);
 
-  if (!files.some((file) => isVideoFile(file) || isSubtitleFile(file))) {
+  const text =
+    e.dataTransfer.getData("text/uri-list") ||
+    e.dataTransfer.getData("text/plain") ||
+    "";
 
-    showStatus("Faqat video va subtitr (.srt / .vtt) fayllar qo'llab-quvvatlanadi", 3500);
+  const { links } = extractYouTubeLinks(text);
+
+  if (!links.length && !subs.length) {
+
+    showStatus("YouTube havolasi yoki subtitr (.srt / .vtt) tashlang", 3500);
 
     return;
 
   }
 
-  // Ro'yxat bo'lsa — qo'shiladi, bo'lmasa — birinchisi yuklanadi
-  addMediaFiles(files, true);
+  // Havola — ro'yxatga qo'shiladi va unga o'tiladi; subtitr — joriy (yangi) videoga ulanadi
+  if (links.length) {
+    addVideoLinks(links, { append: playlist.length > 0, activate: true });
+  }
+
+  if (subs.length) {
+    applySubtitleToCurrent(subs[0]);
+  }
 
 });
 
@@ -4126,6 +4732,11 @@ window.addEventListener("drop", (e) => {
 ========================================================= */
 
 document.addEventListener("keydown", (e) => {
+
+  // Havola oynasi ochiq bo'lsa, tezkor tugmalar ishlamaydi
+  if (isUrlDialogOpen()) {
+    return;
+  }
 
   const target = e.target;
 
@@ -4400,6 +5011,24 @@ document.addEventListener("keydown", (e) => {
       showInfo();
       break;
 
+    case "g":
+    case "G":
+      e.preventDefault();
+      toggleCleanView();
+      break;
+
+    case "a":
+    case "A":
+      e.preventDefault();
+      cycleAspect();
+      break;
+
+    case "u":
+    case "U":
+      e.preventDefault();
+      cycleCaptions();
+      break;
+
   }
 
 });
@@ -4453,7 +5082,7 @@ window.addEventListener("beforeunload", () => {
 
   }
 
-  revokeVideoURL();
+  video.destroy();
 
   takes.forEach((take) => URL.revokeObjectURL(take.url));
 
@@ -4476,6 +5105,8 @@ updateTitleAndPlaceholder();
 applyVideoTransform();
 initFullscreenSupport();
 applySavedSettings();
+layoutVideoBox();
+updatePauseBadge();
 updateFormatNote();
 initMp3Support();
 refreshMicList();
