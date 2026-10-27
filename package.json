@@ -1,8 +1,8 @@
 {
-  "name": "shadowing-video-studio",
-  "productName": "Shadowing Video Studio",
-  "version": "2.3.0",
-  "description": "Shadowing Video Studio — video bilan shadowing mashq dasturi (MP3 yozuv)",
+  "name": "shadowing-studio",
+  "productName": "Shadowing Studio",
+  "version": "3.1.0",
+  "description": "Shadowing Studio — YouTube video bilan shadowing mashq dasturi (MP3 yozuv)",
   "main": "main.js",
   "author": "Shadowing Studio",
   "private": true,
@@ -18,9 +18,9 @@
     "electron-builder": "^26.0.0"
   },
   "build": {
-    "appId": "shadowingvideostudio.app",
-    "productName": "Shadowing Video Studio",
-    "copyright": "Shadowing Video Studio",
+    "appId": "com.shadowingstudio.app",
+    "productName": "Shadowing Studio",
+    "copyright": "Shadowing Studio",
     "directories": {
       "output": "dist",
       "buildResources": "build"
@@ -28,6 +28,7 @@
     "files": [
       "main.js",
       "serve.js",
+      "appserver.js",
       "encoder.js",
       "preload.js",
       "package.json",
@@ -60,13 +61,13 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Shadowing Video Studio",
+      "shortcutName": "Shadowing Studio",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Shadowing-Video-Studio-Setup-${version}.${ext}"
+      "artifactName": "Shadowing-Studio-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "Shadowing-Video-Studio-Portable-${version}.${ext}"
+      "artifactName": "Shadowing-Studio-Portable-${version}.${ext}"
     },
     "asarUnpack": [
       "node_modules/ffmpeg-static/**"

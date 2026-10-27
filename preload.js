@@ -18,6 +18,9 @@ contextBridge.exposeInMainWorld('shadowingNative', {
       { bitrateKbps: options && options.bitrateKbps }
     ),
 
+  // YouTube video haqida ma'lumot: sarlavha va shakl (oEmbed, asosiy jarayon orqali)
+  youtubeInfo: (id) => ipcRenderer.invoke('youtube:info', String(id)),
+
   // Oynani to'liq ekranga o'tkazish / qaytarish (Esc va F11 ham ishlaydi)
   toggleFullscreen: () => ipcRenderer.invoke('window:toggle-fullscreen'),
 
