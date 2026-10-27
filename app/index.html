@@ -2,7 +2,8 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' blob: data:; font-src 'self' data:; object-src 'none'; base-uri 'self'" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; frame-src https://www.youtube-nocookie.com https://www.youtube.com; connect-src 'self' blob: data: https://www.youtube.com; font-src 'self' data:; object-src 'none'; base-uri 'self'" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Shadowing Studio</title>
 
@@ -37,7 +38,7 @@
         </h1>
 
         <p class="text-[10px] md:text-xs text-slate-400">
-          Video Shadowing Practice
+          YouTube Shadowing Practice
         </p>
       </div>
 
@@ -45,23 +46,14 @@
 
     <div class="flex items-center gap-2">
 
-      <!-- VIDEO INPUT (video + ixtiyoriy subtitr birga tanlanishi mumkin) -->
-      <input
-        id="videoInput"
-        type="file"
-        multiple
-        accept="video/*,.mp4,.m4v,.mov,.webm,.mkv,.avi,.ogv,.mpg,.mpeg,.wmv,.3gp,.srt,.vtt"
-        class="hidden"
-      />
-
       <button
         id="openVideoBtn"
         class="hdr-btn"
-        title="Video ochish (Ctrl+O). Bir nechta video, hamda .srt / .vtt subtitrni birga tanlash mumkin"
+        title="YouTube havolasi bilan video ochish (Ctrl+O). Havolani istalgan joyda Ctrl+V bilan joylashtirish ham mumkin"
         type="button"
       >
-        <i class="fa-solid fa-film"></i>
-        <span class="hidden sm:inline">Video</span>
+        <i class="fa-solid fa-youtube"></i>
+        <span class="hidden sm:inline">YouTube</span>
       </button>
 
       <!-- SUBTITLE INPUT -->
@@ -75,7 +67,7 @@
       <button
         id="openSubBtn"
         class="hdr-btn"
-        title="Joriy video uchun subtitr (.srt / .vtt) yuklash"
+        title="Joriy video uchun subtitr fayli (.srt / .vtt) yuklash — gaplar bo'yicha navigatsiya va takrorlash uchun"
         type="button"
       >
         <i class="fa-solid fa-closed-captioning"></i>
@@ -181,17 +173,59 @@
 
         </div>
 
+        <span class="tool-sep"></span>
+
+        <button
+          id="cleanBtn"
+          class="tool-btn active"
+          title="Toza ko'rinish: YouTube sarlavhasi, tugmalari, soyalari va markaziy Play belgisini yashiradi (G)"
+          type="button"
+        >
+          <i class="fa-solid fa-eye-slash"></i>
+          <span>Toza ko'rinish</span>
+        </button>
+
+        <button
+          id="aspectBtn"
+          class="tool-btn"
+          title="Video shakli — toza ko'rinish kadrni to'g'ri qirqishi uchun (A): Avto → 16:9 → 4:3 → 21:9 → 1:1 → 9:16"
+          type="button"
+        >
+          <i class="fa-solid fa-crop-simple"></i>
+          <span id="aspectLabel">Avto</span>
+        </button>
+
+        <button
+          id="ccBtn"
+          class="tool-btn"
+          title="YouTube'ning o'z subtitrini yoqish / o'chirish; yoqiqligida qayta bosilsa — keyingi til (U)"
+          type="button"
+        >
+          <i class="fa-solid fa-youtube"></i>
+          <span>YouTube CC</span>
+        </button>
+
       </div>
 
       <!-- VIDEO -->
 
       <div id="videoFrame">
 
-        <video
-          id="video"
-          preload="metadata"
-          playsinline
-        ></video>
+        <!-- YouTube pleyeri (video oqim bo'lib keladi, yuklanmaydi).
+             ytZoom — zoom/siljitish; ytMask — "toza ko'rinish"da pleyerning yuqori/pastki qatlamlarini kesadi -->
+        <div id="ytZoom">
+          <div id="ytMask">
+            <div id="ytHost"></div>
+
+            <!-- Pauzada YouTube'ning markaziy tugmasini yopadi -->
+            <div id="pauseBadge" aria-hidden="true">
+              <i class="fa-solid fa-play"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shaffof qatlam: bosish, sudrab siljitish va zoom uchun (klaviatura fokusi sahifada qoladi) -->
+        <div id="videoShield"></div>
 
         <div id="subtitleOverlay" aria-live="off">
           <span id="subtitleText"></span>
@@ -222,16 +256,17 @@
             </div>
 
             <h2 class="text-lg font-semibold text-slate-300">
-              Video faylni oching
+              YouTube havolasini kiriting
             </h2>
 
             <p class="text-sm text-slate-500 mt-2">
-              Yuqoridagi Video tugmasi orqali tanlang yoki faylni shu yerga sudrab tashlang.
-              Subtitr (.srt / .vtt) ni videoning o'zi bilan birga tanlasangiz, avtomatik ulanadi
+              Yuqoridagi YouTube tugmasini bosing yoki havolani Ctrl + V bilan joylashtiring.
+              Video YouTube'dan oqim bo'lib ko'rsatiladi va kompyuteringizga yuklanmaydi.
+              Gaplar bo'yicha takrorlash uchun subtitr faylini (.srt / .vtt) alohida yuklang.
             </p>
 
             <p class="text-xs text-slate-600 mt-3">
-              Ctrl + O — video ochish
+              Ctrl + O — havola kiritish · Internet kerak
             </p>
 
           </div>
@@ -452,7 +487,7 @@
       <div class="pane-tools">
         <span id="videosTitle" class="pane-title">Videolar</span>
 
-        <button id="addVideoBtn" class="pl-btn" type="button" title="Ro'yxatga video qo'shish">
+        <button id="addVideoBtn" class="pl-btn" type="button" title="Ro'yxatga YouTube havolasi qo'shish">
           <i class="fa-solid fa-plus"></i>
           <span>Qo'shish</span>
         </button>
@@ -549,11 +584,63 @@
 
   </div>
 
-  <!-- Fayl sudrab tashlanganda ko'rinadi -->
+  <!-- =======================================================
+       YOUTUBE HAVOLASI OYNASI
+  ======================================================== -->
+
+  <div
+    id="urlDialog"
+    class="hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="urlDialogTitle"
+  >
+
+    <div class="dialog-box">
+
+      <h2 id="urlDialogTitle" class="dialog-title">YouTube havolasi</h2>
+
+      <p class="dialog-note">
+        Video YouTube'dan <b>oqim bo'lib</b> ko'rsatiladi — kompyuteringizga yuklanmaydi.
+        Bir nechta video uchun har bir havolani yangi qatordan yozing.
+      </p>
+
+      <textarea
+        id="urlText"
+        class="dialog-input"
+        rows="5"
+        spellcheck="false"
+        autocomplete="off"
+        placeholder="https://www.youtube.com/watch?v=...&#10;https://youtu.be/..."
+      ></textarea>
+
+      <p id="urlHint" class="dialog-hint"></p>
+
+      <div class="dialog-actions">
+
+        <button id="urlCancelBtn" class="pl-btn" type="button">Bekor qilish</button>
+
+        <button id="urlAddBtn" class="pl-btn" type="button" title="Mavjud ro'yxatga qo'shadi, joriy video davom etadi">
+          <i class="fa-solid fa-plus"></i>
+          <span>Ro'yxatga qo'shish</span>
+        </button>
+
+        <button id="urlOpenBtn" class="pl-btn on" type="button" title="Ro'yxatni yangilaydi va birinchi videoni ochadi (Ctrl+Enter)">
+          <i class="fa-solid fa-play"></i>
+          <span>Ochish</span>
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Fayl / havola sudrab tashlanganda ko'rinadi -->
   <div id="dropOverlay" aria-hidden="true">
     <div class="drop-box">
-      <i class="fa-solid fa-film"></i>
-      <p>Video (va subtitr) faylni shu yerga tashlang</p>
+      <i class="fa-solid fa-youtube"></i>
+      <p>YouTube havolasini yoki subtitr faylini (.srt / .vtt) shu yerga tashlang</p>
     </div>
   </div>
 
