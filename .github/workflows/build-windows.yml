@@ -1,7 +1,7 @@
 name: Build Windows installer
 
 # Qo'lda ishga tushirish: Actions -> Build Windows installer -> Run workflow
-# yoki "v2.3.0" kabi teg yuborilganda avtomatik ishlaydi.
+# yoki "v3.1.0" kabi teg yuborilganda avtomatik ishlaydi.
 on:
   workflow_dispatch:
   push:
@@ -22,12 +22,12 @@ jobs:
         shell: bash
         run: |
           missing=0
-          for f in package.json main.js preload.js serve.js encoder.js build/icon.ico build/icon.png app/index.html app/js/app.js app/js/subtitles.js app/js/audio-utils.js app/js/pcm-capture.worklet.js app/css/app.css app/css/base.css app/css/icons.css; do
+          for f in package.json main.js preload.js serve.js appserver.js encoder.js build/icon.ico build/icon.png app/index.html app/js/app.js app/js/youtube-media.js app/js/youtube-url.js app/js/subtitles.js app/js/audio-utils.js app/js/pcm-capture.worklet.js app/css/app.css app/css/base.css app/css/icons.css; do
             if [ ! -f "$f" ]; then echo "YETISHMAYAPTI: $f"; missing=1; fi
           done
           count=$(find app -type f | wc -l)
-          echo "app/ ichidagi fayllar soni: $count (kutilgan: 8)"
-          if [ "$missing" = "1" ] || [ "$count" -lt 8 ]; then
+          echo "app/ ichidagi fayllar soni: $count (kutilgan: 10)"
+          if [ "$missing" = "1" ] || [ "$count" -lt 10 ]; then
             echo "XATO: loyiha fayllari to'liq yuklanmagan. Zip ichidagi barcha papkalarni (.github, app, build) to'liq yuklang."
             echo "Eslatma: eski versiyadagi fayllar qolib ketgan bo'lsa, repozitoriyani tozalab, yangi fayllarni yuklang."
             exit 1
