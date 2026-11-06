@@ -133,25 +133,88 @@ body {
   overflow: hidden;
 }
 
-#video {
+/* Zoom / siljitish shu qatlamga qo'llanadi (ramka o'lchamida) */
+#ytZoom {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: #000;
-  cursor: pointer;
   transform-origin: center center;
   will-change: transform;
 }
 
+/* Kesuvchi oyna. "Toza ko'rinish"da JS uni video kadri o'lchamiga keltiradi:
+   YouTube'ning yuqori/pastki qatlamlari (sarlavha, tugmalar, soyalar) shu oynadan tashqarida qoladi */
+#ytMask {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+/* YouTube pleyeri (iframe). "Toza ko'rinish"da JS uni kesuvchi oynadan balandroq qiladi */
+#ytHost {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+
+/* Pauzada YouTube'ning markaziy tugmasi o'rniga o'zimizning belgi */
+#pauseBadge {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 84px;
+  height: 84px;
+  margin: -42px 0 0 -42px;
+  border-radius: 20px;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  color: #e2e8f0;
+  font-size: 30px;
+  pointer-events: none;
+}
+
+#pauseBadge.show {
+  display: flex;
+}
+
+#pauseBadge:not(.has-icon) i {
+  display: none;
+}
+
+#ytHost iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}
+
+/* Iframe ustidagi shaffof qatlam: bosish / sudrash / zoom shu yerda ushlanadi */
+#videoShield {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: transparent;
+  cursor: pointer;
+}
+
 /* Kattalashtirilganda video sudralib siljitiladi */
-#videoFrame.zoomed #video {
+#videoFrame.zoomed #videoShield {
   cursor: grab;
   touch-action: none;
 }
 
-#videoFrame.panning #video {
+#videoFrame.panning #videoShield {
   cursor: grabbing;
 }
 
@@ -174,6 +237,7 @@ body {
 /* ---------- Subtitr ---------- */
 
 #subtitleOverlay {
+  z-index: 3;
   position: absolute;
   left: 0;
   right: 0;
@@ -290,6 +354,7 @@ body.subs-off #subtitleOverlay {
 /* ---------- Placeholder ---------- */
 
 #stagePlaceholder {
+  z-index: 8;
   position: absolute;
   inset: 0;
   display: flex;
@@ -954,7 +1019,7 @@ body.controls-hidden.controls-peek #sidePanel {
 }
 
 body.controls-hidden.cursor-idle,
-body.controls-hidden.cursor-idle #video {
+body.controls-hidden.cursor-idle #videoShield {
   cursor: none;
 }
 
@@ -980,4 +1045,91 @@ body.controls-hidden.cursor-idle #video {
 
 body.controls-hidden:not(.controls-peek) #miniProgress {
   display: block;
+}
+
+/* =========================================================
+   YOUTUBE HAVOLASI OYNASI
+========================================================= */
+
+#urlDialog {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(2, 6, 23, 0.72);
+}
+
+#urlDialog.hidden {
+  display: none;
+}
+
+.dialog-box {
+  width: min(560px, 100%);
+  padding: 18px 20px;
+  background: #1e293b;
+  border: 1px solid #475569;
+  border-radius: 14px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+}
+
+.dialog-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dialog-note {
+  margin: 0 0 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+.dialog-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 92px;
+  max-height: 40vh;
+  padding: 10px 12px;
+  border: 1px solid #475569;
+  border-radius: 9px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  outline: none;
+}
+
+.dialog-input:focus {
+  border-color: #38bdf8;
+}
+
+.dialog-hint {
+  min-height: 20px;
+  margin: 6px 0 2px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.dialog-hint.error {
+  color: #f87171;
+}
+
+.dialog-hint.ok {
+  color: #34d399;
+}
+
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dialog-actions .pl-btn {
+  padding: 8px 14px;
+  font-size: 13px;
 }
