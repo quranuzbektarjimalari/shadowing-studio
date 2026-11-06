@@ -1,6 +1,6 @@
 {
-  "name": "shadowing-studio",
-  "productName": "Shadowing Studio",
+  "name": "shadowing-video-studio",
+  "productName": "Shadowing Video Studio",
   "version": "2.3.0",
   "description": "Shadowing Studio — video bilan shadowing mashq dasturi (MP3 yozuv)",
   "main": "main.js",
@@ -18,7 +18,7 @@
     "electron-builder": "^26.0.0"
   },
   "build": {
-    "appId": "com.shadowingstudio.app",
+    "appId": "com.shadowingvideostudio.app",
     "productName": "Shadowing Studio",
     "copyright": "Shadowing Studio",
     "directories": {
@@ -60,13 +60,13 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Shadowing Studio",
+      "shortcutName": "Shadowing Video Studio",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "artifactName": "Shadowing-Studio-Setup-${version}.${ext}"
+      "artifactName": "Shadowing-Video-Studio-Setup-${version}.${ext}"
     },
     "portable": {
-      "artifactName": "Shadowing-Studio-Portable-${version}.${ext}"
+      "artifactName": "Shadowing-Video-Studio-Portable-${version}.${ext}"
     },
     "asarUnpack": [
       "node_modules/ffmpeg-static/**"
