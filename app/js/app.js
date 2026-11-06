@@ -949,6 +949,7 @@ muteBtn.addEventListener("click", () => {
 ========================================================= */
 
 let isABLooping = false;
+let stopAfterCurrentLoop = false;
 
 function toggleModal() {
   const modal = document.getElementById("shortcutModal");
@@ -958,48 +959,33 @@ function toggleModal() {
 }
 
 function updateLoopButton() {
-
   loopBtn.classList.toggle("active", Boolean(loopEnabled || isABLooping || video.loop));
-
 }
 
 function updateSentenceButton() {
-
   sentenceBtn.classList.toggle("active", sentenceLoop);
-
 }
 
 function setPointA() {
-
   if (!hasVideoSource()) {
     noVideo();
     return;
   }
-
   const current = Number(video.currentTime);
-
-  // A nuqta currentTime'dan 0.2 sekund oldin olinadi
   pointA = Math.max(0, (Number.isFinite(current) ? Math.max(0, current) : 0) - 0.2);
-
   pointB = null;
-
   loopEnabled = false;
   isABLooping = false;
-
+  stopAfterCurrentLoop = false;
   sentenceLoop = false;
-
   sentenceCueIdx = -1;
-
   video.loop = false;
 
   btnA.classList.add("active");
   btnB.classList.remove("active");
-
   updateLoopButton();
   updateSentenceButton();
-
   showStatus("A: " + formatTime(pointA));
-
 }
 
 function playABOnce() {
@@ -1010,77 +996,10 @@ function playABOnce() {
   }
 }
 
-function setPointB() {
-
-  if (!hasVideoSource()) {
-    noVideo();
-    return;
-  }
-
-  if (pointA === null) {
-    showStatus("Avval A ni bosing");
-    return;
-  }
-
-  const calculatedB = Number(video.currentTime);
-
-  if (!Number.isFinite(calculatedB)) {
-    showStatus("B nuqtani aniqlab bo'lmadi");
-    return;
-  }
-
-  if (calculatedB <= pointA) {
-    showStatus("B A dan keyin bo'lishi kerak");
-    return;
-  }
-
-  pointB = calculatedB;
-
-  loopEnabled = false;
-  isABLooping = false;
-
-  sentenceLoop = false;
-
-  sentenceCueIdx = -1;
-
-  video.loop = false;
-
-  btnB.classList.add("active");
-  loopBtn.classList.remove("active");
-
-  updateSentenceButton();
-
-  playABOnce();
-
-  showStatus("A-B bir martalik ijro");
-
-}
-
-function toggleABLoop() {
-  if (pointA === null || pointB === null) {
-    showStatus("Avval A va B ni belgilang!");
-    return;
-  }
-  isABLooping = !isABLooping;
-  loopEnabled = isABLooping;
-  updateLoopButton();
-
-  if (isABLooping) {
-    showStatus("A-B Loop yoqildi");
-    if (video.currentTime < pointA || video.currentTime > pointB) {
-      seekTo(pointA);
-    }
-    if (video.paused) {
-      playVideo();
-    }
-  } else {
-    showStatus("B gacha o'qib to'xtaydi");
-  }
-}
-
 function jumpToPointA() {
   if (pointA !== null) {
     isABLooping = false;
+    stopAfterCurrentLoop = false;
     loopEnabled = false;
     updateLoopButton();
     if (pointB !== null) {
@@ -1096,8 +1015,65 @@ function jumpToPointA() {
   }
 }
 
-function checkABLoop() {
+function setPointB() {
+  if (!hasVideoSource()) {
+    noVideo();
+    return;
+  }
+  if (pointA === null) {
+    showStatus("Avval A ni bosing");
+    return;
+  }
+  const calculatedB = Number(video.currentTime);
+  if (!Number.isFinite(calculatedB) || calculatedB <= pointA) {
+    showStatus("B A dan keyin bo'lishi kerak");
+    return;
+  }
+  pointB = calculatedB;
+  loopEnabled = false;
+  isABLooping = false;
+  stopAfterCurrentLoop = false;
+  sentenceLoop = false;
+  sentenceCueIdx = -1;
+  video.loop = false;
 
+  btnB.classList.add("active");
+  loopBtn.classList.remove("active");
+  updateSentenceButton();
+
+  playABOnce();
+  showStatus("A-B bir martalik ijro");
+}
+
+function toggleABLoop() {
+  if (pointA === null || pointB === null) {
+    showStatus("Avval A va B ni belgilang!");
+    return;
+  }
+  if (!isABLooping) {
+    // Turn on continuous loop
+    isABLooping = true;
+    stopAfterCurrentLoop = false;
+    loopEnabled = true;
+    updateLoopButton();
+    showStatus("A-B Loop yoqildi");
+    if (video.currentTime < pointA || video.currentTime > pointB) {
+      seekTo(pointA);
+    }
+    if (video.paused) {
+      playVideo();
+    }
+  } else {
+    // Turn off loop, but let it finish current interval till B and stop
+    stopAfterCurrentLoop = true;
+    isABLooping = false;
+    loopEnabled = false;
+    updateLoopButton();
+    showStatus("B gacha o'qib to'xtaydi");
+  }
+}
+
+function checkABLoop() {
   if (
     compareActive ||
     pointA === null ||
@@ -1112,25 +1088,28 @@ function checkABLoop() {
   if (Number.isFinite(current) && current >= pointB) {
     if (isABLooping) {
       seekTo(pointA);
+    } else if (stopAfterCurrentLoop) {
+      video.pause();
+      stopAfterCurrentLoop = false;
+      showStatus("A-B yakunlandi");
     } else {
+      // Default: play once and pause at B
       video.pause();
     }
   }
-
 }
 
 function clearABLoop(showMessage = true) {
-
   pointA = null;
   pointB = null;
   loopEnabled = false;
   isABLooping = false;
+  stopAfterCurrentLoop = false;
   sentenceLoop = false;
   sentenceCueIdx = -1;
 
   btnA.classList.remove("active");
   btnB.classList.remove("active");
-
   updateLoopButton();
   updateSentenceButton();
 
@@ -1141,49 +1120,8 @@ function clearABLoop(showMessage = true) {
   if (showMessage) {
     showStatus("A-B loop o'chirildi");
   }
-
 }
 
-btnA.addEventListener("click", setPointA);
-btnB.addEventListener("click", setPointB);
-clearLoopBtn.addEventListener("click", () => clearABLoop(true));
-
-loopBtn.addEventListener("click", () => {
-
-  if (!hasVideoSource()) {
-    noVideo();
-    return;
-  }
-
-  if (pointA !== null && pointB !== null) {
-
-    loopEnabled = !loopEnabled;
-
-    video.loop = false;
-
-    if (!loopEnabled) {
-      sentenceLoop = false;
-      sentenceCueIdx = -1;
-      updateSentenceButton();
-    }
-
-  } else {
-
-    video.loop = !video.loop;
-
-    loopEnabled = false;
-
-  }
-
-  updateLoopButton();
-
-  showStatus(
-    pointA !== null && pointB !== null
-      ? (loopEnabled ? "A-B takror yoqildi" : "A-B takror o'chirildi")
-      : (video.loop ? "Video takrori yoqildi" : "Video takrori o'chirildi")
-  );
-
-});
 
 /* =========================================================
    VIDEO ZOOM (kattalashtirish / kichiklashtirish) va PAN (siljitish)
@@ -4241,7 +4179,10 @@ document.addEventListener("keydown", (e) => {
 
     case "0":
       e.preventDefault();
-      jumpToPointA();
+      if (hasVideoSource()) {
+        seekTo(0);
+        showStatus("Boshiga");
+      }
       break;
 
     case "3":
@@ -4251,10 +4192,7 @@ document.addEventListener("keydown", (e) => {
 
     case ".":
       e.preventDefault();
-      if (hasVideoSource()) {
-        seekTo(0);
-        showStatus("Boshiga");
-      }
+      jumpToPointA();
       break;
 
     case "7":
